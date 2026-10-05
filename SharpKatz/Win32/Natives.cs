@@ -1864,7 +1864,7 @@ namespace SharpKatz.Win32
 
             if (hProcess == IntPtr.Zero)
             {
-                Console.WriteLine("[x] Error ZwOpenProcess10  " + res);
+                Console.WriteLine("    Error ZwOpenProcess10  " + res);
                 return IntPtr.Zero;
             }
 

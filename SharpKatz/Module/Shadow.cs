@@ -74,13 +74,13 @@ namespace SharpKatz.Module
                                         szShadowName = string.Format("\\\\?\\GLOBALROOT\\Device\\{0}\\", szName);
                                         if (!string.IsNullOrEmpty(szShadowName))
                                         {
-                                            Console.WriteLine("[*] ShadowCopy Volume : {0}", szName);
-                                            Console.WriteLine("[*] | Path            : {0}", szShadowName);
+                                            Console.WriteLine("   ShadowCopy Volume : {0}", szName);
+                                            Console.WriteLine("   | Path            : {0}", szShadowName);
 
                                             if (GetFileAttributesExW(szShadowName, GET_FILEEX_INFO_LEVELS.GetFileExInfoStandard, ref Attribute))
                                             {
                                                 res.Add(szShadowName);
-                                                Console.Write("[*] | Volume LastWrite: ");
+                                                Console.Write("   | Volume LastWrite: ");
                                                 Console.WriteLine("{0:yyyy/MM/dd HH:mm:ss}", Utility.ToDateTime(Attribute.ftLastWriteTime));
                                             }
                                             else
@@ -88,17 +88,17 @@ namespace SharpKatz.Module
                                                 Console.WriteLine("GetFileAttributesEx");
                                             }
                                             
-                                            Console.WriteLine("[*]");
+                                            Console.WriteLine("  ");
                                             for (int j = 0; j < INT_FILES.Length; j++)
                                             {
                                                 szFullPath = string.Format("{0}Windows\\System32\\config\\{1}", szShadowName, INT_FILES[j]);
                                                 if (!string.IsNullOrEmpty(szFullPath))
                                                 {
-                                                    Console.WriteLine("[*] * {0}", szFullPath);
+                                                    Console.WriteLine("   * {0}", szFullPath);
 
                                                     if (GetFileAttributesExW(szFullPath, GET_FILEEX_INFO_LEVELS.GetFileExInfoStandard, ref Attribute))
                                                     {
-                                                        Console.Write("[*]   | LastWrite   : ");
+                                                        Console.Write("     | LastWrite   : ");
                                                         Console.WriteLine("{0:yyyy/MM/dd HH:mm:ss}", Utility.ToDateTime(Attribute.ftLastWriteTime));
                                                     }
                                                     else
@@ -108,7 +108,7 @@ namespace SharpKatz.Module
                                                     
                                                 }
                                             }
-                                            Console.WriteLine("[*]");
+                                            Console.WriteLine("  ");
                                         }
                                     }
                                 }

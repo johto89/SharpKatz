@@ -168,21 +168,21 @@ namespace SharpKatz
 
         public void PrintOSVersion()
         {
-            Console.WriteLine("[*]");
-            Console.WriteLine("[*] \t\t\tSystem Information");
-            Console.WriteLine("[*] {0}", new string('-', 70));
-            Console.WriteLine("[*] | Platform: {0,-57}|", System.Environment.OSVersion.Platform);
-            Console.WriteLine("[*] {0}", new string('-', 70));
-            Console.WriteLine("[*] | Major: {0,-14}| Minor: {1,-14}| Build: {2,-14}|", major, minor, build);
-            Console.WriteLine("[*] {0}", new string('-', 70));
-            Console.WriteLine("[*] | Version: {0,-58}|", System.Environment.OSVersion.VersionString);
-            Console.WriteLine("[*] {0}", new string('-', 70));
+            Console.WriteLine("  ");
+            Console.WriteLine("   \t\t\tSystem Information");
+            Console.WriteLine("   {0}", new string('-', 70));
+            Console.WriteLine("   | Platform: {0,-57}|", System.Environment.OSVersion.Platform);
+            Console.WriteLine("   {0}", new string('-', 70));
+            Console.WriteLine("   | Major: {0,-14}| Minor: {1,-14}| Build: {2,-14}|", major, minor, build);
+            Console.WriteLine("   {0}", new string('-', 70));
+            Console.WriteLine("   | Version: {0,-58}|", System.Environment.OSVersion.VersionString);
+            Console.WriteLine("   {0}", new string('-', 70));
             if (!string.IsNullOrEmpty(System.Environment.OSVersion.ServicePack))
             {
-                Console.WriteLine("[*] | ServicePack: {0,-44}|", System.Environment.OSVersion.ServicePack);
-                Console.WriteLine("[*] {0}", new string('-', 70));
+                Console.WriteLine("   | ServicePack: {0,-44}|", System.Environment.OSVersion.ServicePack);
+                Console.WriteLine("   {0}", new string('-', 70));
             }
-            Console.WriteLine("[*]");
+            Console.WriteLine("  ");
         }
 
         private IWinBuild GetWinBuild()

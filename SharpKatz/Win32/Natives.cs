@@ -13,6 +13,7 @@
 
 using SharpKatz.Crypto;
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -2869,23 +2870,16 @@ namespace SharpKatz.Win32
         public struct PEB_LDR_DATA
         {
             [FieldOffset(0x10)]
-            public LIST_ENTRY InLoadOrderModuleList;
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        public struct LIST_ENTRY
-        {
-            public IntPtr Flink;
-            public IntPtr Blink;
+            public Module.Msv1.LIST_ENTRY InLoadOrderModuleList;
         }
 
         // LDR_DATA_TABLE_ENTRY (partial — InLoadOrderLinks at offset 0)
         [StructLayout(LayoutKind.Sequential)]
         public struct LDR_DATA_TABLE_ENTRY
         {
-            public LIST_ENTRY InLoadOrderLinks;        // +0x00
-            public LIST_ENTRY InMemoryOrderLinks;      // +0x10
-            public LIST_ENTRY InInitializationOrderLinks; // +0x20
+            public Module.Msv1.LIST_ENTRY InLoadOrderLinks;        // +0x00
+            public Module.Msv1.LIST_ENTRY InMemoryOrderLinks;      // +0x10
+            public Module.Msv1.LIST_ENTRY InInitializationOrderLinks; // +0x20
             public IntPtr DllBase;                     // +0x30
             public IntPtr EntryPoint;                  // +0x38
             public uint SizeOfImage;                   // +0x40

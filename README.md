@@ -181,8 +181,15 @@ A typical DPAPI credential extraction workflow:
 ## Build
 
 - Target: .NET Framework 4.8 (x64)
+- Restore NuGet packages before building (Costura.Fody, Fody, NDesk.Options):
+  ```
+  nuget restore SharpKatz.sln
+  ```
+  Or in Visual Studio: right-click Solution → **Restore NuGet Packages**
 - Open `SharpKatz.sln` in Visual Studio and build Release|x64
 - Output: `bin\x64\Release\CredHelper.exe`
+
+> **Note:** If you get "referenced component could not be found" warnings, NuGet packages have not been restored. The project will not compile without Costura.Fody (assembly merging) and NDesk.Options (command-line parsing).
 
 ## Credits
 

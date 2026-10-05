@@ -8,7 +8,7 @@
     <ProjectGuid>{8568B4C1-2940-4F6C-BF4E-4383EF268BE9}</ProjectGuid>
     <OutputType>Exe</OutputType>
     <RootNamespace>SharpKatz</RootNamespace>
-    <AssemblyName>CredHelper</AssemblyName>
+    <AssemblyName>SharpKatz</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>

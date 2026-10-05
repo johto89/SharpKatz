@@ -523,6 +523,40 @@ namespace SharpKatz.Win32
             [SuppressUnmanagedCodeSecurity]
             [UnmanagedFunctionPointer(CallingConvention.StdCall)]
             public delegate void DeleteProcThreadAttributeList(IntPtr lpAttributeList);
+
+            // --- Certificate API delegates ---
+
+            [SuppressUnmanagedCodeSecurity]
+            [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Unicode)]
+            public delegate IntPtr CertOpenSystemStoreW(IntPtr hProv, string szSubsystemProtocol);
+
+            [SuppressUnmanagedCodeSecurity]
+            [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+            public delegate IntPtr CertEnumCertificatesInStore(IntPtr hCertStore, IntPtr pPrevCertContext);
+
+            [SuppressUnmanagedCodeSecurity]
+            [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+            public delegate bool CertCloseStore(IntPtr hCertStore, uint dwFlags);
+
+            [SuppressUnmanagedCodeSecurity]
+            [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+            public delegate bool CertFreeCertificateContext(IntPtr pCertContext);
+
+            [SuppressUnmanagedCodeSecurity]
+            [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Unicode)]
+            public delegate bool PFXExportCertStoreEx(IntPtr hStore, ref CRYPT_DATA_BLOB pPFX, string szPassword, IntPtr pvPara, uint dwFlags);
+
+            [SuppressUnmanagedCodeSecurity]
+            [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+            public delegate IntPtr CertOpenStore(uint dwStoreProvider, uint dwEncodingType, IntPtr hCryptProv, uint dwFlags, IntPtr pvPara);
+
+            [SuppressUnmanagedCodeSecurity]
+            [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+            public delegate bool CertAddCertificateContextToStore(IntPtr hCertStore, IntPtr pCertContext, uint dwAddDisposition, IntPtr ppStoreContext);
+
+            [SuppressUnmanagedCodeSecurity]
+            [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Unicode)]
+            public delegate uint CertGetNameStringW(IntPtr pCertContext, uint dwType, uint dwFlags, IntPtr pvTypePara, IntPtr pszNameString, uint cchNameString);
         }
     }
 }

@@ -612,7 +612,7 @@ namespace SharpKatz.Module
             string tmp = Encoding.ASCII.GetString(ansi);
             return Encoding.Unicode.GetBytes(tmp);
         }
-        private static bool RegEnumKeyEx(IntPtr hRegistry, IntPtr hKey, uint dwIndex, IntPtr lpName, IntPtr lpcName, IntPtr lpReserved, IntPtr lpClass, IntPtr lpcClass, IntPtr lpftLastWriteTime)
+        internal static bool RegEnumKeyEx(IntPtr hRegistry, IntPtr hKey, uint dwIndex, IntPtr lpName, IntPtr lpcName, IntPtr lpReserved, IntPtr lpClass, IntPtr lpcClass, IntPtr lpftLastWriteTime)
         {
             bool status = false;
             NTSTATUS dwErrCode; 
@@ -776,7 +776,7 @@ namespace SharpKatz.Module
             return status;
         }
 
-        private static IntPtr RegistryOpen(KULL_M_REGISTRY_TYPE regType, IntPtr hAny, bool isWrite)
+        internal static IntPtr RegistryOpen(KULL_M_REGISTRY_TYPE regType, IntPtr hAny, bool isWrite)
         {
 
             bool status = false;
@@ -845,7 +845,7 @@ namespace SharpKatz.Module
             return IntPtr.Zero;
         }
 
-        private static IntPtr RegOpenKeyEx(IntPtr hRegistry, IntPtr hKey, string lpSubKey, uint ulOptions, Natives.ACCESS_MASK samDesired)
+        internal static IntPtr RegOpenKeyEx(IntPtr hRegistry, IntPtr hKey, string lpSubKey, uint ulOptions, Natives.ACCESS_MASK samDesired)
         {
             NTSTATUS dwErrCode;
             KULL_M_REGISTRY_HIVE_KEY_NAMED pKn = new KULL_M_REGISTRY_HIVE_KEY_NAMED();
@@ -916,7 +916,7 @@ namespace SharpKatz.Module
             return IntPtr.Zero;
         }
 
-        private static IntPtr GetComputerAndSyskey(IntPtr hRegistry, IntPtr hSystemBase)
+        internal static IntPtr GetComputerAndSyskey(IntPtr hRegistry, IntPtr hSystemBase)
         {
             IntPtr p = RegOpenKeyEx(hRegistry, hSystemBase, "Select", 0, (Natives.ACCESS_MASK)KEY_READ);
             IntPtr result = IntPtr.Zero;
@@ -990,7 +990,7 @@ namespace SharpKatz.Module
             return result;
         }
 
-        private static bool RegQueryValueEx(IntPtr hRegistry, IntPtr hKey, string lpValueName, IntPtr lpReserved, ref uint lpType, ref IntPtr lpData, ref uint lpcbData)
+        internal static bool RegQueryValueEx(IntPtr hRegistry, IntPtr hKey, string lpValueName, IntPtr lpReserved, ref uint lpType, ref IntPtr lpData, ref uint lpcbData)
         {
             KULL_M_REGISTRY_HANDLE registry = new KULL_M_REGISTRY_HANDLE();
             registry = (KULL_M_REGISTRY_HANDLE)Marshal.PtrToStructure(hRegistry, typeof(KULL_M_REGISTRY_HANDLE));
@@ -1041,14 +1041,14 @@ namespace SharpKatz.Module
             return false; ;
         }
 
-        private static KULL_M_REGISTRY_HIVE_BIN_CELL_DATA GetBinCell(IntPtr pRegistryHive, int offset, int size)
+        internal static KULL_M_REGISTRY_HIVE_BIN_CELL_DATA GetBinCell(IntPtr pRegistryHive, int offset, int size)
         {
             KULL_M_REGISTRY_HIVE_HANDLE registryHive = (KULL_M_REGISTRY_HIVE_HANDLE)Marshal.PtrToStructure(pRegistryHive, typeof(KULL_M_REGISTRY_HIVE_HANDLE));
             KULL_M_REGISTRY_HIVE_BIN_CELL_DATA c = (KULL_M_REGISTRY_HIVE_BIN_CELL_DATA)Marshal.PtrToStructure(IntPtr.Add(registryHive.pStartOf, offset), typeof(KULL_M_REGISTRY_HIVE_BIN_CELL_DATA));
             c.data = UpdateDataBytes(IntPtr.Add(registryHive.pStartOf, offset), Utility.FieldOffset<KULL_M_REGISTRY_HIVE_BIN_CELL_DATA>("data"),size);
             return c;
         }
-        private static IntPtr SearchValueNameInList(IntPtr hRegistry, IntPtr hKey, string lpValueName)
+        internal static IntPtr SearchValueNameInList(IntPtr hRegistry, IntPtr hKey, string lpValueName)
         {
             KULL_M_REGISTRY_HANDLE registry = new KULL_M_REGISTRY_HANDLE();
             registry = (KULL_M_REGISTRY_HANDLE)Marshal.PtrToStructure(hRegistry, typeof(KULL_M_REGISTRY_HANDLE));
@@ -1074,12 +1074,17 @@ namespace SharpKatz.Module
                         pVk.valueName = UpdateDataBytes(cp, Utility.FieldOffset<KULL_M_REGISTRY_HIVE_VALUE_KEY>("valueName"), pVk.szValueName);
                         if (pVk.tag == 27510)
                         {
-                            if (pVk.szValueName != 0)
+                            if (string.IsNullOrEmpty(lpValueName))
+                            {
+                                // Query default value (unnamed) - match entry with szValueName == 0
+                                if (pVk.szValueName == 0)
+                                    return cp;
+                            }
+                            else if (pVk.szValueName != 0)
                             {
                                 string name = Encoding.UTF8.GetString(pVk.valueName);
                                 if (name.Equals(lpValueName))
                                     return cp;
-                                
                             }
                         }
                     }
@@ -1089,7 +1094,7 @@ namespace SharpKatz.Module
             return IntPtr.Zero;
         }
 
-        private static void RegCloseKey(IntPtr hRegistry, IntPtr hKey)
+        internal static void RegCloseKey(IntPtr hRegistry, IntPtr hKey)
         {
             KULL_M_REGISTRY_HANDLE registry = new KULL_M_REGISTRY_HANDLE();
             registry = (KULL_M_REGISTRY_HANDLE)Marshal.PtrToStructure(hRegistry, typeof(KULL_M_REGISTRY_HANDLE));
@@ -1106,7 +1111,7 @@ namespace SharpKatz.Module
             }
         }
 
-        private static bool OpenAndQueryWithAlloc(IntPtr hRegistry, IntPtr hKey, string lpSubKey, string lpValueName, ref uint lpType, ref IntPtr lpData, out uint szNeeded)
+        internal static bool OpenAndQueryWithAlloc(IntPtr hRegistry, IntPtr hKey, string lpSubKey, string lpValueName, ref uint lpType, ref IntPtr lpData, out uint szNeeded)
         {
             IntPtr hResult = RegOpenKeyEx(hRegistry, hKey, lpSubKey, 0, (Natives.ACCESS_MASK)KEY_READ);
             szNeeded = 0;
@@ -1120,7 +1125,7 @@ namespace SharpKatz.Module
             return false;
         }
 
-        private static bool QueryWithAlloc(IntPtr hRegistry, IntPtr hKey, string lpValueName, ref uint lpType, ref IntPtr lpData, ref uint szNeeded)
+        internal static bool QueryWithAlloc(IntPtr hRegistry, IntPtr hKey, string lpValueName, ref uint lpType, ref IntPtr lpData, ref uint szNeeded)
         {
             IntPtr nope = IntPtr.Zero;
             if (RegQueryValueEx(hRegistry, hKey, lpValueName, IntPtr.Zero, ref lpType, ref nope, ref szNeeded))
@@ -1144,7 +1149,7 @@ namespace SharpKatz.Module
             return false;
         }
 
-        private static string RevertHex(string input)
+        internal static string RevertHex(string input)
         {
             char[] b = new char[input.Length];
 
@@ -1158,7 +1163,7 @@ namespace SharpKatz.Module
             return new string(b);
         }
 
-        private static bool GetSyskey(IntPtr hRegistry, IntPtr hLSA, ref byte[] sysKey)
+        internal static bool GetSyskey(IntPtr hRegistry, IntPtr hLSA, ref byte[] sysKey)
         {
             bool status = false;
             uint reserved = 0;
@@ -1201,7 +1206,7 @@ namespace SharpKatz.Module
             return status;
         }
 
-        private static bool RegQueryInfoKey(IntPtr hRegistry, IntPtr hKey, IntPtr lpClass, IntPtr lpcClass, ref uint lpReserved, IntPtr lpcSubKeys, IntPtr lpcMaxSubKeyLen, IntPtr lpcMaxClassLen, IntPtr lpcValues, IntPtr lpcMaxValueNameLen, IntPtr lpcMaxValueLen, IntPtr lpcbSecurityDescriptor, IntPtr lpftLastWriteTime)
+        internal static bool RegQueryInfoKey(IntPtr hRegistry, IntPtr hKey, IntPtr lpClass, IntPtr lpcClass, ref uint lpReserved, IntPtr lpcSubKeys, IntPtr lpcMaxSubKeyLen, IntPtr lpcMaxClassLen, IntPtr lpcValues, IntPtr lpcMaxValueNameLen, IntPtr lpcMaxValueLen, IntPtr lpcbSecurityDescriptor, IntPtr lpftLastWriteTime)
         {
             KULL_M_REGISTRY_HANDLE registry = new KULL_M_REGISTRY_HANDLE();
             registry = (KULL_M_REGISTRY_HANDLE)Marshal.PtrToStructure(hRegistry, typeof(KULL_M_REGISTRY_HANDLE));
@@ -1276,7 +1281,7 @@ namespace SharpKatz.Module
             return status;
         }
 
-        private static byte[] UpdateDataBytes(IntPtr start, int fieldoffset, int count)
+        internal static byte[] UpdateDataBytes(IntPtr start, int fieldoffset, int count)
         {
             byte[] res = new byte[count];
             IntPtr p = IntPtr.Add(start, fieldoffset);
@@ -1284,7 +1289,7 @@ namespace SharpKatz.Module
             return res;
         }
 
-        private static KULL_M_REGISTRY_HIVE_LF_LH_ELEMENT[] UpdateDataREGISTRY_HIVE_LF_LH_ELEMENT(IntPtr start, int fieldoffset, int count)
+        internal static KULL_M_REGISTRY_HIVE_LF_LH_ELEMENT[] UpdateDataREGISTRY_HIVE_LF_LH_ELEMENT(IntPtr start, int fieldoffset, int count)
         {
             KULL_M_REGISTRY_HIVE_LF_LH_ELEMENT[] elements = new KULL_M_REGISTRY_HIVE_LF_LH_ELEMENT[count];
             byte[] belements = new byte[count * Marshal.SizeOf(typeof(KULL_M_REGISTRY_HIVE_LF_LH_ELEMENT))];
@@ -1301,7 +1306,7 @@ namespace SharpKatz.Module
             return elements;
         }
 
-        private static int[] UpdateDataInt(IntPtr start, int fieldoffset, int count)
+        internal static int[] UpdateDataInt(IntPtr start, int fieldoffset, int count)
         {
             int[] elements = new int[count];
             byte[] belements = new byte[count * Marshal.SizeOf(typeof(int))];
@@ -1318,7 +1323,7 @@ namespace SharpKatz.Module
             return elements;
         }
 
-        private static IntPtr SearchKeyNamedInList(KULL_M_REGISTRY_HANDLE registry, IntPtr pHbC, string lpSubKey)
+        internal static IntPtr SearchKeyNamedInList(KULL_M_REGISTRY_HANDLE registry, IntPtr pHbC, string lpSubKey)
         {
             KULL_M_REGISTRY_HIVE_KEY_NAMED pKn = new KULL_M_REGISTRY_HIVE_KEY_NAMED();
             IntPtr result = IntPtr.Zero;
@@ -1499,7 +1504,7 @@ namespace SharpKatz.Module
             return status;
         }
 
-        private static KULL_M_REGISTRY_HANDLE RegistryClose(IntPtr hRegistry)
+        internal static KULL_M_REGISTRY_HANDLE RegistryClose(IntPtr hRegistry)
         {
             if (hRegistry != IntPtr.Zero)
             {

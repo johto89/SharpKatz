@@ -1958,6 +1958,13 @@ namespace SharpKatz.Win32
 
         }
 
+        private static IntPtr GetCrypt32()
+        {
+
+            return LoadLibrary("crypt32.dll");
+
+        }
+
         public static IntPtr GetCurrentProcess()
         {
             IntPtr proc = GetProcAddress(GetKernel32(), "GetCurrentProcess");
@@ -2639,5 +2646,89 @@ namespace SharpKatz.Win32
             SysCall.Delegates.DeleteProcThreadAttributeList DeleteProcThreadAttributeList = (SysCall.Delegates.DeleteProcThreadAttributeList)Marshal.GetDelegateForFunctionPointer(proc, typeof(SysCall.Delegates.DeleteProcThreadAttributeList));
             DeleteProcThreadAttributeList(lpAttributeList);
         }
+
+        // --- Certificate API wrappers ---
+
+        public static IntPtr CertOpenSystemStore(IntPtr hProv, string szSubsystemProtocol)
+        {
+            IntPtr proc = GetProcAddress(GetCrypt32(), "CertOpenSystemStoreW");
+            SysCall.Delegates.CertOpenSystemStoreW CertOpenSystemStoreW = (SysCall.Delegates.CertOpenSystemStoreW)Marshal.GetDelegateForFunctionPointer(proc, typeof(SysCall.Delegates.CertOpenSystemStoreW));
+            return CertOpenSystemStoreW(hProv, szSubsystemProtocol);
+        }
+
+        public static IntPtr CertEnumCertificatesInStore(IntPtr hCertStore, IntPtr pPrevCertContext)
+        {
+            IntPtr proc = GetProcAddress(GetCrypt32(), "CertEnumCertificatesInStore");
+            SysCall.Delegates.CertEnumCertificatesInStore CertEnumCertificatesInStore = (SysCall.Delegates.CertEnumCertificatesInStore)Marshal.GetDelegateForFunctionPointer(proc, typeof(SysCall.Delegates.CertEnumCertificatesInStore));
+            return CertEnumCertificatesInStore(hCertStore, pPrevCertContext);
+        }
+
+        public static bool CertCloseStore(IntPtr hCertStore, uint dwFlags)
+        {
+            IntPtr proc = GetProcAddress(GetCrypt32(), "CertCloseStore");
+            SysCall.Delegates.CertCloseStore CertCloseStore = (SysCall.Delegates.CertCloseStore)Marshal.GetDelegateForFunctionPointer(proc, typeof(SysCall.Delegates.CertCloseStore));
+            return CertCloseStore(hCertStore, dwFlags);
+        }
+
+        public static bool CertFreeCertificateContext(IntPtr pCertContext)
+        {
+            IntPtr proc = GetProcAddress(GetCrypt32(), "CertFreeCertificateContext");
+            SysCall.Delegates.CertFreeCertificateContext CertFreeCertificateContext = (SysCall.Delegates.CertFreeCertificateContext)Marshal.GetDelegateForFunctionPointer(proc, typeof(SysCall.Delegates.CertFreeCertificateContext));
+            return CertFreeCertificateContext(pCertContext);
+        }
+
+        public static bool PFXExportCertStoreEx(IntPtr hStore, ref CRYPT_DATA_BLOB pPFX, string szPassword, IntPtr pvPara, uint dwFlags)
+        {
+            IntPtr proc = GetProcAddress(GetCrypt32(), "PFXExportCertStoreEx");
+            SysCall.Delegates.PFXExportCertStoreEx PFXExportCertStoreEx = (SysCall.Delegates.PFXExportCertStoreEx)Marshal.GetDelegateForFunctionPointer(proc, typeof(SysCall.Delegates.PFXExportCertStoreEx));
+            return PFXExportCertStoreEx(hStore, ref pPFX, szPassword, pvPara, dwFlags);
+        }
+
+        public static IntPtr CertOpenStore(uint dwStoreProvider, uint dwEncodingType, IntPtr hCryptProv, uint dwFlags, IntPtr pvPara)
+        {
+            IntPtr proc = GetProcAddress(GetCrypt32(), "CertOpenStore");
+            SysCall.Delegates.CertOpenStore CertOpenStore = (SysCall.Delegates.CertOpenStore)Marshal.GetDelegateForFunctionPointer(proc, typeof(SysCall.Delegates.CertOpenStore));
+            return CertOpenStore(dwStoreProvider, dwEncodingType, hCryptProv, dwFlags, pvPara);
+        }
+
+        public static bool CertAddCertificateContextToStore(IntPtr hCertStore, IntPtr pCertContext, uint dwAddDisposition, IntPtr ppStoreContext)
+        {
+            IntPtr proc = GetProcAddress(GetCrypt32(), "CertAddCertificateContextToStore");
+            SysCall.Delegates.CertAddCertificateContextToStore CertAddCertificateContextToStore = (SysCall.Delegates.CertAddCertificateContextToStore)Marshal.GetDelegateForFunctionPointer(proc, typeof(SysCall.Delegates.CertAddCertificateContextToStore));
+            return CertAddCertificateContextToStore(hCertStore, pCertContext, dwAddDisposition, ppStoreContext);
+        }
+
+        public static uint CertGetNameStringW(IntPtr pCertContext, uint dwType, uint dwFlags, IntPtr pvTypePara, IntPtr pszNameString, uint cchNameString)
+        {
+            IntPtr proc = GetProcAddress(GetCrypt32(), "CertGetNameStringW");
+            SysCall.Delegates.CertGetNameStringW CertGetNameStringW = (SysCall.Delegates.CertGetNameStringW)Marshal.GetDelegateForFunctionPointer(proc, typeof(SysCall.Delegates.CertGetNameStringW));
+            return CertGetNameStringW(pCertContext, dwType, dwFlags, pvTypePara, pszNameString, cchNameString);
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct CRYPT_DATA_BLOB
+        {
+            public uint cbData;
+            public IntPtr pbData;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct CERT_CONTEXT
+        {
+            public uint dwCertEncodingType;
+            public IntPtr pbCertEncoded;
+            public uint cbCertEncoded;
+            public IntPtr pCertInfo;
+            public IntPtr hCertStore;
+        }
+
+        // Certificate export flags
+        public const uint EXPORT_PRIVATE_KEYS = 0x0004;
+        public const uint REPORT_NO_PRIVATE_KEY = 0x0001;
+        public const uint REPORT_NOT_ABLE_TO_EXPORT_PRIVATE_KEY = 0x0002;
+        public const uint CERT_STORE_PROV_MEMORY = 2;
+        public const uint CERT_STORE_CREATE_NEW_FLAG = 0x00002000;
+        public const uint CERT_STORE_ADD_ALWAYS = 4;
+        public const uint CERT_NAME_SIMPLE_DISPLAY_TYPE = 4;
     }
 }

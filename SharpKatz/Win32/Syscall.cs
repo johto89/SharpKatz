@@ -557,6 +557,28 @@ namespace SharpKatz.Win32
             [SuppressUnmanagedCodeSecurity]
             [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Unicode)]
             public delegate uint CertGetNameStringW(IntPtr pCertContext, uint dwType, uint dwFlags, IntPtr pvTypePara, IntPtr pszNameString, uint cchNameString);
+
+            // --- LSA Policy API delegates ---
+
+            [SuppressUnmanagedCodeSecurity]
+            [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+            public delegate uint LsaOpenPolicy(IntPtr systemName, ref Natives.LSA_OBJECT_ATTRIBUTES objectAttributes, uint desiredAccess, out IntPtr policyHandle);
+
+            [SuppressUnmanagedCodeSecurity]
+            [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+            public delegate uint LsaRetrievePrivateData(IntPtr policyHandle, IntPtr keyName, out IntPtr privateData);
+
+            [SuppressUnmanagedCodeSecurity]
+            [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+            public delegate uint LsaClose(IntPtr objectHandle);
+
+            [SuppressUnmanagedCodeSecurity]
+            [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+            public delegate uint LsaFreeMemory(IntPtr buffer);
+
+            [SuppressUnmanagedCodeSecurity]
+            [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+            public delegate int LsaNtStatusToWinError(uint status);
         }
     }
 }

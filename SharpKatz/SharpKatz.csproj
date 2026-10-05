@@ -87,6 +87,9 @@
     <Compile Include="Module\LogonSessions.cs" />
     <Compile Include="Module\PrintNightmare.cs" />
     <Compile Include="Module\Pth.cs" />
+    <Compile Include="Module\SpawnProcess.cs" />
+    <Compile Include="Module\Token.cs" />
+    <Compile Include="Module\Vault.cs" />
     <Compile Include="Module\Sam.cs" />
     <Compile Include="Module\Shadow.cs" />
     <Compile Include="Module\Tspkg.cs" />

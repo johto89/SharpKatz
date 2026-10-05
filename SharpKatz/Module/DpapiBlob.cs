@@ -683,6 +683,23 @@ namespace SharpKatz.Module
         }
 
         /// <summary>
+        /// Decrypt a DPAPI blob using the internal masterkey cache
+        /// Returns decrypted bytes or null if masterkey not found / decryption fails
+        /// </summary>
+        public static byte[] DecryptBlobBytesWithCache(byte[] blobData)
+        {
+            ParsedBlob blob = ParseBlob(blobData);
+            if (blob == null)
+                return null;
+
+            string guidStr = blob.MasterKeyGuid.ToString().ToLowerInvariant();
+            if (!_masterkeyCache.ContainsKey(guidStr))
+                return null;
+
+            return DecryptBlobData(blob, _masterkeyCache[guidStr]);
+        }
+
+        /// <summary>
         /// AES-256-CBC decryption
         /// </summary>
         private static byte[] DecryptAesCbc(byte[] encrypted, byte[] key, byte[] iv)

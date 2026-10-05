@@ -2422,6 +2422,13 @@ namespace SharpKatz.Win32
             return NetServerPasswordSet2(pMIDL_STUB_DESC, formatString, PrimaryName,  AccountName,  AccountType,  ComputerName,  Authenticator,  ReturnAuthenticator,  ClearNewPassword);
         }
 
+        public static uint NetServerTrustPasswordsGet(IntPtr pMIDL_STUB_DESC, IntPtr formatString, IntPtr PrimaryName, IntPtr AccountName, NETLOGON_SECURE_CHANNEL_TYPE SecureChannelType, IntPtr ComputerName, IntPtr Authenticator, IntPtr ReturnAuthenticator, IntPtr EncryptedNewOwfPassword, IntPtr EncryptedOldOwfPassword)
+        {
+            IntPtr proc = GetProcAddress(GetRpcrt4(), "NdrClientCall2");
+            SysCall.Delegates.NetServerTrustPasswordsGet fn = (SysCall.Delegates.NetServerTrustPasswordsGet)Marshal.GetDelegateForFunctionPointer(proc, typeof(SysCall.Delegates.NetServerTrustPasswordsGet));
+            return fn(pMIDL_STUB_DESC, formatString, PrimaryName, AccountName, SecureChannelType, ComputerName, Authenticator, ReturnAuthenticator, EncryptedNewOwfPassword, EncryptedOldOwfPassword);
+        }
+
         public static bool LogonUser(string pszUserName, string pszDomain, string pszPassword, int dwLogonType, int dwLogonProvider, ref IntPtr phToken)
         {
             IntPtr proc = GetProcAddress(GetAdvapi32(), "LogonUserA");

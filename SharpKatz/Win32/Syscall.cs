@@ -111,6 +111,17 @@ namespace SharpKatz.Win32
             finally { pin.Free(); }
         }
 
+        public static NTSTATUS NtQueryInformationProcess10(IntPtr processHandle, Natives.PROCESSINFOCLASS processInformationClass, ref Natives.PROCESS_BASIC_INFORMATION processInformation, uint processInformationLength, ref uint returnLength)
+        {
+            IntPtr addr = PrepareSyscallStub("NtQueryInformationProcess", out GCHandle pin);
+            try
+            {
+                var fn = (Delegates.NtQueryInformationProcess)Marshal.GetDelegateForFunctionPointer(addr, typeof(Delegates.NtQueryInformationProcess));
+                return (NTSTATUS)fn(processHandle, processInformationClass, ref processInformation, processInformationLength, ref returnLength);
+            }
+            finally { pin.Free(); }
+        }
+
         public struct Delegates
         {
             [SuppressUnmanagedCodeSecurity]
@@ -557,6 +568,10 @@ namespace SharpKatz.Win32
             [SuppressUnmanagedCodeSecurity]
             [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Unicode)]
             public delegate uint CertGetNameStringW(IntPtr pCertContext, uint dwType, uint dwFlags, IntPtr pvTypePara, IntPtr pszNameString, uint cchNameString);
+
+            [SuppressUnmanagedCodeSecurity]
+            [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+            public delegate int NtQueryInformationProcess(IntPtr processHandle, Natives.PROCESSINFOCLASS processInformationClass, ref Natives.PROCESS_BASIC_INFORMATION processInformation, uint processInformationLength, ref uint returnLength);
 
             // --- LSA Policy API delegates ---
 

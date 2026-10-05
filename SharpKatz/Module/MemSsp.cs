@@ -221,7 +221,7 @@ namespace SharpKatz.Module
             IntPtr allocBase = IntPtr.Zero;
             UIntPtr allocSize = new UIntPtr((uint)totalSize);
 
-            NTSTATUS status = SysCall.NtAllocateVirtualMemory10(
+            Natives.NTSTATUS status = SysCall.NtAllocateVirtualMemory10(
                 hProcess,
                 ref allocBase,
                 IntPtr.Zero,
@@ -230,7 +230,7 @@ namespace SharpKatz.Module
                 0x40    // PAGE_EXECUTE_READWRITE
             );
 
-            if (status != NTSTATUS.Success || allocBase == IntPtr.Zero)
+            if (status != Natives.NTSTATUS.Success || allocBase == IntPtr.Zero)
             {
                 Console.WriteLine("   [-] NtAllocateVirtualMemory failed: 0x{0:X8}", (uint)status);
                 return false;

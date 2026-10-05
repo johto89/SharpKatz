@@ -467,7 +467,7 @@ namespace SharpKatz.Module
                 }
 
                 // Read header
-                ushort pageSize = ReadBigEndianUInt16(db, 16);
+                int pageSize = ReadBigEndianUInt16(db, 16);
                 if (pageSize == 1) pageSize = 65536;  // special case in SQLite
 
                 // Read sqlite_master table to find "logins" table

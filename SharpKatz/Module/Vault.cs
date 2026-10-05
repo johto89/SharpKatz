@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
+using static SharpKatz.Win32.Natives;
 
 namespace SharpKatz.Module
 {
@@ -204,12 +205,5 @@ namespace SharpKatz.Module
             return sb.ToString();
         }
 
-        // P/Invoke
-        [DllImport("advapi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-        private static extern bool CredEnumerateW(
-            string filter, int flags, ref int count, ref IntPtr credentials);
-
-        [DllImport("advapi32.dll")]
-        private static extern void CredFree(IntPtr buffer);
     }
 }

